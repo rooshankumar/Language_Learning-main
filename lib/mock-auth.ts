@@ -75,7 +75,7 @@ export const createMockFirestore = () => {
     doc: (path: string) => {
       return {
         id: path.split('/').pop(),
-        set: async (data, options) => Promise.resolve(),
+        set: async (data: any, options?: any) => Promise.resolve(),
         get: async () => ({
           exists: true,
           data: () => ({ 
