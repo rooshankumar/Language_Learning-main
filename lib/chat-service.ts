@@ -1,3 +1,4 @@
+
 import { io, Socket } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -107,7 +108,64 @@ class ChatService {
       this.socket = null;
     }
   }
+  
+  // Added missing exported functions
+  public subscribeToChatMessages(chatId: string, callback: (messages: Message[]) => void) {
+    if (!this.socket) return () => {};
+    
+    this.socket.emit('subscribeToChatMessages', chatId);
+    
+    const messageHandler = (messages: Message[]) => {
+      if (messages && Array.isArray(messages)) {
+        callback(messages);
+      }
+    };
+    
+    this.socket.on(`chatMessages:${chatId}`, messageHandler);
+    
+    return () => {
+      this.socket?.off(`chatMessages:${chatId}`, messageHandler);
+      this.socket?.emit('unsubscribeFromChatMessages', chatId);
+    };
+  }
+  
+  public markMessagesAsRead(chatId: string, userId: string) {
+    if (!this.socket) return;
+    
+    this.socket.emit('markMessagesAsRead', {
+      chatId,
+      userId
+    });
+  }
+  
+  public startChat(recipientId: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      if (!this.socket || !this.currentUser) {
+        reject(new Error('Not connected or user not set'));
+        return;
+      }
+      
+      this.socket.emit('startChat', {
+        userId: this.currentUser.id,
+        recipientId
+      });
+      
+      const handler = (chatId: string) => {
+        resolve(chatId);
+        this.socket?.off('chatStarted', handler);
+      };
+      
+      this.socket.on('chatStarted', handler);
+      
+      // Add timeout to prevent hanging promises
+      setTimeout(() => {
+        this.socket?.off('chatStarted', handler);
+        reject(new Error('Timeout starting chat'));
+      }, 10000);
+    });
+  }
 }
 
 // Export as singleton
 export const chatService = new ChatService();
+export { subscribeToChatMessages, markMessagesAsRead, startChat } from './chat-service-utils';
