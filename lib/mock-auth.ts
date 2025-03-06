@@ -99,7 +99,7 @@ export const createMockFirestore = () => {
       return {
         id: path.split('/').pop(),
         doc: (docId = uuidv4()) => mockDb.doc(`${path}/${docId}`),
-        add: async (data) => {
+        add: async (data: any) => {
           const docId = `mock-doc-${Date.now()}`;
           return { id: docId, ...mockDb.doc(`${path}/${docId}`) };
         },
