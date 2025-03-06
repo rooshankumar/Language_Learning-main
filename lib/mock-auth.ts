@@ -18,7 +18,7 @@ const mockUser = {
 
 // Mock Auth
 export const createMockAuth = () => {
-  const listeners = [];
+  const listeners: ((user: any) => void)[] = [];
   
   const auth = {
     currentUser: mockUser,
