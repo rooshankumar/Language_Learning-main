@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "server": "node server.js"
+    "server": "node server.js",
+    "start:prod": "NODE_ENV=production node server.js & next start",
+    "build:prod": "next build"
   },
   "dependencies": {
     "@emoji-mart/data": "latest",
@@ -49,6 +51,7 @@
     "cookies-next": "^4.1.0",
     "cors": "^2.8.5",
     "date-fns": "latest",
+    "dotenv": "^16.4.7",
     "embla-carousel-react": "8.5.1",
     "emoji-mart": "latest",
     "express": "^4.21.2",
