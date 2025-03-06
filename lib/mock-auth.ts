@@ -89,9 +89,9 @@ export const createMockFirestore = () => {
             interests: ["Reading", "Travel", "Music"]
           })
         }),
-        update: async (data) => Promise.resolve(),
+        update: async (data: any) => Promise.resolve(),
         delete: async () => Promise.resolve(),
-        collection: (collPath) => mockDb.collection(`${path}/${collPath}`)
+        collection: (collPath: string) => mockDb.collection(`${path}/${collPath}`)
       };
     },
     // Create a mock collection reference
