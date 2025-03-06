@@ -1,0 +1,81 @@
+🛠 Workflow for Your Language Learning App (Chat-Only Community)
+This workflow outlines how users will sign up, chat, update profiles, and find friends in your social language learning app.
+
+🚀 1. User Authentication Flow
+A. Sign Up
+User opens the app and clicks "Sign Up".
+User enters:
+Email
+Password
+Display name (optional)
+Native & target language
+Email Verification (Optional): If enabled, user confirms email.
+User gets redirected to the Profile Setup page.
+B. Sign In
+User enters email & password.
+Firebase authenticates credentials.
+If successful, redirect to the Chat Dashboard.
+C. Google Sign-In (Optional)
+User clicks "Sign in with Google".
+App retrieves Google profile info (name, email, profile picture).
+User is logged in and redirected to the Chat Dashboard.
+📝 2. Profile Setup & Settings
+A. First-Time Profile Setup (After Sign-Up)
+User selects:
+Profile picture (optional)
+Native & target language(s)
+Interest tags (e.g., "Travel, Business, Casual Conversations")
+Short bio
+Clicks "Save", then gets redirected to the Community page.
+B. Profile Update (Anytime)
+User navigates to Profile Settings.
+Can update:
+Display name
+Bio
+Profile picture
+Languages
+Clicks "Update", and changes are saved to Firestore.
+👥 3. Community Feature (Finding Language Partners)
+A. Discover New Friends
+User visits Community Section.
+Sees list of suggested users based on:
+Shared target/native language
+Interest tags
+User can:
+Send a chat request (if mutual interests match).
+Follow the person (optional feature).
+View recently active users.
+💬 4. Chat Feature (Core Functionality)
+A. Starting a Chat
+User selects a friend from Community or Recent Chats.
+Clicks "Start Chat", opening a chat window.
+Firebase Firestore stores the chat in a chats collection.
+B. Sending & Receiving Messages
+User types a message and clicks "Send".
+Message is stored in Firestore in real-time.
+The recipient receives the message instantly via Firebase listeners or WebSockets.
+C. Viewing Recent Chats
+User visits Chats Section.
+Sees a list of recent conversations, sorted by last message time.
+Clicking a chat opens the conversation.
+D. AI Chatbot (Optional Feature for Practice)
+If no real users are available, the app offers AI chatbot chat.
+The chatbot responds in the selected target language.
+AI corrects grammar and suggests improvements.
+📌 5. Notifications & Activity Feed (Optional Feature)
+User gets a notification for:
+New chat requests
+New messages
+Clicking a notification opens the chat.
+🛠 Tech Stack for This Workflow
+Frontend: React.js / Next.js
+Backend: Firebase (Auth, Firestore, Storage)
+Database: Firestore (for chats & user profiles)
+Real-Time Updates: Firestore listeners or WebSockets
+🔥 Summary of User Experience
+1️⃣ Sign Up / Sign In → Profile Setup
+2️⃣ Find Language Partners in Community
+3️⃣ Start Text Chats with Friends & AI Chatbots
+4️⃣ See Recent Chats & Continue Conversations
+5️⃣ Update Profile Anytime
+
