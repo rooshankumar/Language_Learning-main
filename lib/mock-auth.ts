@@ -22,7 +22,7 @@ export const createMockAuth = () => {
   
   const auth = {
     currentUser: mockUser,
-    onAuthStateChanged: (listener) => {
+    onAuthStateChanged: (listener: (user: any) => void) => {
       // Call the listener immediately with the mock user
       setTimeout(() => listener(mockUser), 100);
       
