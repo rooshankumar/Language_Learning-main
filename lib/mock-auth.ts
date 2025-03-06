@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 
 // Mock user for development
@@ -19,16 +18,16 @@ const mockUser = {
 // Mock Auth
 export const createMockAuth = () => {
   const listeners: ((user: any) => void)[] = [];
-  
+
   const auth = {
     currentUser: mockUser,
     onAuthStateChanged: (listener: (user: any) => void) => {
       // Call the listener immediately with the mock user
       setTimeout(() => listener(mockUser), 100);
-      
+
       // Store listener for future reference
       listeners.push(listener);
-      
+
       // Return unsubscribe function
       return () => {
         const index = listeners.indexOf(listener);
@@ -64,7 +63,7 @@ export const createMockAuth = () => {
       return Promise.resolve();
     }
   };
-  
+
   return auth;
 };
 
@@ -146,7 +145,7 @@ export const createMockFirestore = () => {
                 }
               ]
             }),
-            onSnapshot: (callback) => {
+            onSnapshot: (callback: any) => { // Added type annotation - needs refinement
               callback({
                 empty: false,
                 docs: [
@@ -170,7 +169,7 @@ export const createMockFirestore = () => {
               return () => {};
             }
           }),
-          onSnapshot: (callback) => {
+          onSnapshot: (callback: any) => { // Added type annotation - needs refinement
             callback({
               empty: false,
               docs: [
@@ -215,7 +214,7 @@ export const createMockFirestore = () => {
               }
             ]
           }),
-          onSnapshot: (callback) => {
+          onSnapshot: (callback: any) => { // Added type annotation - needs refinement
             callback({
               empty: false,
               docs: [
@@ -239,7 +238,7 @@ export const createMockFirestore = () => {
             return () => {};
           }
         }),
-        onSnapshot: (callback) => {
+        onSnapshot: (callback: any) => { // Added type annotation - needs refinement
           callback({
             empty: false,
             docs: [
@@ -265,6 +264,6 @@ export const createMockFirestore = () => {
       };
     }
   };
-  
+
   return mockDb;
 };
