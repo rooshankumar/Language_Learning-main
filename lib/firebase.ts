@@ -19,9 +19,9 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
-let googleProvider;
-let githubProvider;
-let phoneProvider;
+let googleProvider: GoogleAuthProvider | undefined;
+let githubProvider: GithubAuthProvider | undefined;
+let phoneProvider: PhoneAuthProvider | undefined;
 
 // Initialize providers only in browser environment
 const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';

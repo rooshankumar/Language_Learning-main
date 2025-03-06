@@ -84,6 +84,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
+      if (!googleProvider) {
+        throw new Error("Google provider is not available");
+      }
       const result = await signInWithPopup(firebaseAuth, googleProvider);
       const user = result.user;
       
@@ -139,6 +142,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const confirmPhoneCode = async (verificationId: string, code: string) => {
     try {
       const credential = PhoneAuthProvider.credential(verificationId, code);
+      if (!phoneProvider) {
+        throw new Error("Phone provider is not available");
+      }
       await signInWithPopup(firebaseAuth, phoneProvider);
       router.push('/');
     } catch (error: any) {
