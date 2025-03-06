@@ -6,7 +6,7 @@ channel = "stable-24_05"
 
 [deployment]
 run = ["sh", "-c", "npm run start"]
-build = ["sh", "-c", "npm run build"]
+build = ["sh", "-c", "cp .env.production .env.local && npm run build"]
 
 [[ports]]
 localPort = 3000
