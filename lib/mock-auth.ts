@@ -72,7 +72,7 @@ export const createMockAuth = () => {
 export const createMockFirestore = () => {
   const mockDb = {
     // Create a mock document reference
-    doc: (path) => {
+    doc: (path: string) => {
       return {
         id: path.split('/').pop(),
         set: async (data, options) => Promise.resolve(),
@@ -95,7 +95,7 @@ export const createMockFirestore = () => {
       };
     },
     // Create a mock collection reference
-    collection: (path) => {
+    collection: (path: string) => {
       return {
         id: path.split('/').pop(),
         doc: (docId = uuidv4()) => mockDb.doc(`${path}/${docId}`),
