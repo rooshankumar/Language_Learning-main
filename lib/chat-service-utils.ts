@@ -6,8 +6,15 @@ export function subscribeToChatMessages(chatId: string, callback: (messages: any
   return chatService.subscribeToChatMessages(chatId, callback);
 }
 
-export function markMessagesAsRead(chatId: string, userId: string) {
-  return chatService.markMessagesAsRead(chatId, userId);
+export function markMessagesAsRead(chatId: string, userId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    try {
+      chatService.markMessagesAsRead(chatId, userId);
+      resolve();
+    } catch (error) {
+      reject(error);
+    }
+  });
 }
 
 export function startChat(recipientId: string): Promise<string> {

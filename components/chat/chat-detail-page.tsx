@@ -27,7 +27,7 @@ export default function ChatDetailPage({ chatId }: ChatDetailPageProps) {
     });
 
     // Mark messages as read when component mounts
-    markMessagesAsRead(user.uid, chatId).catch(error => {
+    markMessagesAsRead(chatId, user.uid).catch(error => {
       console.error('Error marking messages as read:', error);
     });
 
