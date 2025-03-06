@@ -158,6 +158,17 @@ export function useChat(chatId: string, recipientId: string): UseChatReturn {
 
 }
 
+// Helper function for community page to create a chat with another user
+export async function createChat(userId: string, userName: string, recipientId: string): Promise<string> {
+  try {
+    // Use the existing startChat function which only takes recipientId
+    return await startChat(recipientId);
+  } catch (err) {
+    console.error('Error creating chat:', err);
+    throw err;
+  }
+}
+
 interface UseChatSocketReturn {
   socket: Socket | null;
   connected: boolean;

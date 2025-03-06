@@ -75,7 +75,7 @@ export default function CommunityPage() {
       const currentUserName = currentUserData?.displayName || user.displayName || 'User';
       
       // Start or get existing chat
-      const chatId = await startChat(user.uid, currentUserName, otherUser.uid);
+      const chatId = await startChat(otherUser.uid);
       
       // Navigate to chat
       router.push(`/chat/${chatId}`);
