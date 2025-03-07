@@ -1,4 +1,3 @@
-
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -38,21 +37,21 @@ const handler = NextAuth({
         await connectToDatabase();
 
         const user = await User.findOne({ email: credentials.email });
-        
+
         if (!user) {
           throw new Error("No user found with this email");
         }
-        
+
         if (!user.password) {
           throw new Error("Please log in with the method you used to create your account");
         }
-        
+
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
-        
+
         if (!isPasswordValid) {
           throw new Error("Invalid password");
         }
-        
+
         return {
           id: user._id.toString(),
           name: user.name,
@@ -72,19 +71,40 @@ const handler = NextAuth({
         token.id = user.id;
         token.isOnboarded = user.isOnboarded;
       }
-      
+
       // Update user in database when profile is updated
       if (trigger === "update" && session) {
         token = { ...token, ...session };
       }
-      
+
       return token;
     },
     async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id as string;
-        session.user.isOnboarded = token.isOnboarded as boolean;
+      // Add user ID to session
+      if (session.user && token.sub) {
+        session.user.id = token.sub;
       }
+
+      // Add onboarding status to session
+      if (token.isOnboarded !== undefined) {
+        session.user.isOnboarded = token.isOnboarded;
+      }
+
+      // Make sure session is updated with latest user data
+      if (session.user && token.sub) {
+        try {
+          // Get latest user data from database
+          await connectToDatabase();
+          const user = await User.findById(token.sub);
+          if (user) {
+            session.user.isOnboarded = user.isOnboarded || false;
+            // Add other user fields you might need
+          }
+        } catch (error) {
+          console.error("Error fetching user data for session:", error);
+        }
+      }
+
       return session;
     },
     async redirect({ url, baseUrl }) {

@@ -24,12 +24,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // If authenticated but not onboarded trying to access any route except onboarding, redirect to onboarding
-  if (isAuthenticated && !token.isOnboarded && path !== '/onboarding' && !path.startsWith('/api/')) {
+  if (isAuthenticated && token?.user && !token.user.isOnboarded && path !== '/onboarding' && !path.startsWith('/api/')) {
+    console.log("Redirecting to onboarding: User not onboarded");
     return NextResponse.redirect(new URL('/onboarding', request.url));
   }
 
   // If authenticated and onboarded trying to access onboarding, redirect to home
-  if (isAuthenticated && token.isOnboarded && path === '/onboarding') {
+  if (isAuthenticated && token?.user && token.user.isOnboarded && path === '/onboarding') {
+    console.log("Redirecting to home: User already onboarded");
     return NextResponse.redirect(new URL('/', request.url));
   }
 

@@ -135,6 +135,7 @@ export default function Onboarding() {
         interests,
         bio,
         age: age ? parseInt(age) : null,
+        isOnboarded: true,  // Use the correct field name that matches the middleware check
         onboardingCompleted: true,
       });
 
@@ -143,7 +144,14 @@ export default function Onboarding() {
         description: "Your profile has been set up successfully.",
       });
 
-      router.push("/");
+      // Force refresh session before redirect
+      await fetch('/api/auth/session', { method: 'GET' });
+      
+      // Add a small delay to ensure the session is updated
+      setTimeout(() => {
+        router.push("/");
+        router.refresh(); // Force router refresh
+      }, 1000);
     } catch (error) {
       console.error("Onboarding error:", error);
       toast({
