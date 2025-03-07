@@ -162,3 +162,125 @@ export async function POST(request: Request) {
     );
   }
 }
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]/route';
+import { connectToDatabase } from '@/lib/mongoose';
+import User from '@/models/User';
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.email) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Unauthorized' }),
+        { status: 401 }
+      );
+    }
+
+    // Get conversation partner ID from query
+    const url = new URL(request.url);
+    const partnerId = url.searchParams.get('partnerId');
+
+    if (!partnerId) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Partner ID is required' }),
+        { status: 400 }
+      );
+    }
+
+    await connectToDatabase();
+
+    // Find the partner user
+    const partner = await User.findById(partnerId).select("-password");
+    
+    if (!partner) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Partner not found' }),
+        { status: 404 }
+      );
+    }
+
+    // For now, return an empty message array (in a real app, you'd get messages from a Chat model)
+    return NextResponse.json({
+      partner: {
+        id: partner._id,
+        name: partner.name,
+        image: partner.image,
+        lastSeen: partner.lastSeen,
+        online: partner.online
+      },
+      messages: []
+    });
+  } catch (error) {
+    console.error('Error fetching chat:', error);
+    return new NextResponse(
+      JSON.stringify({ message: 'Error fetching chat' }),
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.email) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Unauthorized' }),
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const { partnerId, message } = body;
+
+    if (!partnerId || !message) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Partner ID and message are required' }),
+        { status: 400 }
+      );
+    }
+
+    await connectToDatabase();
+
+    // Find the current user
+    const currentUser = await User.findOne({ email: session.user.email });
+    
+    if (!currentUser) {
+      return new NextResponse(
+        JSON.stringify({ message: 'User not found' }),
+        { status: 404 }
+      );
+    }
+
+    // Find the partner user
+    const partner = await User.findById(partnerId);
+    
+    if (!partner) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Partner not found' }),
+        { status: 404 }
+      );
+    }
+
+    // In a real app, you would save the message to your Chat model
+    // For now, just return a success response with the message
+    return NextResponse.json({
+      success: true,
+      message: {
+        id: Date.now().toString(),
+        senderId: currentUser._id.toString(),
+        text: message,
+        timestamp: new Date()
+      }
+    });
+  } catch (error) {
+    console.error('Error sending message:', error);
+    return new NextResponse(
+      JSON.stringify({ message: 'Error sending message' }),
+      { status: 500 }
+    );
+  }
+}

@@ -34,8 +34,13 @@ export async function GET() {
       age: user.age,
       nativeLanguage: user.nativeLanguage,
       learningLanguage: user.learningLanguage,
-      interests: user.interests,
+      nativeLanguages: user.nativeLanguages || [],
+      learningLanguages: user.learningLanguages || [],
+      proficiency: user.proficiency || 'beginner',
+      interests: user.interests || [],
       isOnboarded: user.isOnboarded,
+      lastSeen: user.lastSeen,
+      online: user.online || false,
     });
   } catch (error) {
     console.error('Error fetching user profile:', error);
@@ -93,8 +98,13 @@ export async function PATCH(request: NextRequest) {
       age: updatedUser.age,
       nativeLanguage: updatedUser.nativeLanguage,
       learningLanguage: updatedUser.learningLanguage,
-      interests: updatedUser.interests,
+      nativeLanguages: updatedUser.nativeLanguages || [],
+      learningLanguages: updatedUser.learningLanguages || [],
+      proficiency: updatedUser.proficiency || 'beginner',
+      interests: updatedUser.interests || [],
       isOnboarded: updatedUser.isOnboarded,
+      lastSeen: updatedUser.lastSeen,
+      online: updatedUser.online || false,
     });
   } catch (error) {
     console.error('Error updating user profile:', error);
