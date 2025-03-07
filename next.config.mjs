@@ -5,7 +5,6 @@ const nextConfig = {
   output: 'standalone',
   poweredByHeader: false,
   images: {
-    domains: ['firebasestorage.googleapis.com'],
     remotePatterns: [
       {
         protocol: 'https',

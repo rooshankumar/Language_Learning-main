@@ -160,3 +160,41 @@ app.prepare().then(() => {
     });
   });
 });
+const { createServer } = require('http');
+const { parse } = require('url');
+const next = require('next');
+const mongoose = require('mongoose');
+
+const dev = process.env.NODE_ENV !== 'production';
+const app = next({ dev });
+const handle = app.getRequestHandler();
+
+const PORT = process.env.PORT || 3000;
+
+// Connect to MongoDB before starting the server
+async function startServer() {
+  try {
+    // Connect to MongoDB if MONGODB_URI is defined
+    if (process.env.MONGODB_URI) {
+      await mongoose.connect(process.env.MONGODB_URI);
+      console.log('✅ MongoDB connected successfully');
+    } else {
+      console.warn('⚠️ MONGODB_URI not defined, skipping MongoDB connection');
+    }
+
+    await app.prepare();
+    
+    createServer((req, res) => {
+      const parsedUrl = parse(req.url, true);
+      handle(req, res, parsedUrl);
+    }).listen(PORT, '0.0.0.0', (err) => {
+      if (err) throw err;
+      console.log(`> Ready on http://0.0.0.0:${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Server startup error:', error);
+    process.exit(1);
+  }
+}
+
+startServer();

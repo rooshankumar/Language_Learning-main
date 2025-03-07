@@ -1,9 +1,7 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Socket, io } from 'socket.io-client';
 import { useAuth } from '@/contexts/auth-context';
-import { startChat } from '@/lib/chat-service';
-import { Firestore } from 'firebase/firestore';
+import { startChat, getUserChats, sendMessage as sendMongoMessage, getChatMessages } from '@/lib/chat-service';
 
 // Define message type
 export interface Message {
@@ -43,64 +41,30 @@ export function useChat(chatId: string, recipientId: string): UseChatReturn {
   const { user } = useAuth();
   const socketRef = useRef<Socket | null>(null);
 
-  // Fetch recipient profile
+  // Fetch recipient profile -  This needs to be rewritten for MongoDB
   useEffect(() => {
     if (!user || !recipientId) return;
-    
+
     const fetchRecipientProfile = async () => {
       try {
-        const { doc, getDoc } = await import('firebase/firestore');
-        const { db } = await import('@/lib/firebase');
-        
-        if (!db) return;
-
-        const userDoc = await getDoc(doc(db as Firestore, 'users', recipientId));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setRecipientProfile({
-            photoURL: userData.photoURL,
-            displayName: userData.displayName || 'User',
-            isOnline: userData.isOnline || false
-          });
-        }
+        // MongoDB profile fetch logic needed here
+        console.error("MongoDB recipient profile fetch not implemented");
       } catch (err) {
         console.error("Error fetching recipient profile:", err);
       }
     };
-    
+
     fetchRecipientProfile();
   }, [recipientId, user]);
 
-  // Send a message
+  // Send a message - This needs to be rewritten for MongoDB
   const sendMessage = useCallback(async (content: string) => {
     try {
       if (!user || !content.trim()) return;
-      
-      const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
-      const { db } = await import('@/lib/firebase');
-      
-      if (!db) return;
 
-      const message: Message = {
-        senderId: user.uid,
-        senderName: user.displayName || 'User',
-        recipientId,
-        content,
-        timestamp: new Date().toISOString(),
-        read: false,
-        text: content // For compatibility with chat-window.tsx
-      };
-      
-      // Save message to Firestore
-      await addDoc(collection(db as Firestore, "chats", chatId, "messages"), {
-        ...message,
-        timestamp: serverTimestamp(),
-      });
-      
-      // Optionally emit via socket if real-time
-      if (socketRef.current) {
-        socketRef.current.emit('send_message', message);
-      }
+      // MongoDB message sending logic needed here.  sendMongoMessage likely needs parameters
+      console.error("MongoDB sendMessage not implemented");
+
     } catch (err) {
       console.error("Error sending message:", err);
       setError("Failed to send message");
@@ -110,37 +74,11 @@ export function useChat(chatId: string, recipientId: string): UseChatReturn {
   const createOrGetChat = useCallback(async (recipientId: string): Promise<string> => {
     try {
       if (!user) throw new Error('User must be authenticated');
-      
-      const { collection, query, where, getDocs, addDoc } = await import('firebase/firestore');
-      const { db } = await import('@/lib/firebase');
-      
-      if (!db) throw new Error('Database not initialized');
 
-      // Check for existing chat
-      const chatsRef = collection(db as Firestore, 'chats');
-      const q = query(
-        chatsRef,
-        where('participants', 'array-contains', user.uid)
-      );
+      // MongoDB chat creation/retrieval logic needed here
+      console.error("MongoDB createOrGetChat not implemented");
+      return ""; // Placeholder
 
-      const querySnapshot = await getDocs(q);
-      const existingChat = querySnapshot.docs.find(doc => {
-        const data = doc.data();
-        return data.participants.includes(recipientId);
-      });
-
-      if (existingChat) {
-        return existingChat.id;
-      }
-
-      // Create new chat if none exists
-      const newChatRef = await addDoc(chatsRef, {
-        participants: [user.uid, recipientId],
-        createdAt: new Date().toISOString(),
-        lastMessage: null
-      });
-
-      return newChatRef.id;
     } catch (err) {
       console.error('Error creating/getting chat:', err);
       throw err;
@@ -158,11 +96,13 @@ export function useChat(chatId: string, recipientId: string): UseChatReturn {
 
 }
 
-// Helper function for community page to create a chat with another user
+// Helper function for community page to create a chat with another user - Needs MongoDB implementation
 export async function createChat(userId: string, userName: string, recipientId: string): Promise<string> {
   try {
-    // Use the existing startChat function which only takes recipientId
-    return await startChat(recipientId);
+    // MongoDB chat creation logic needed here.
+    console.error("MongoDB createChat not implemented");
+    return ""; // Placeholder
+
   } catch (err) {
     console.error('Error creating chat:', err);
     throw err;
@@ -246,7 +186,7 @@ export function useChatSocket(): UseChatSocketReturn {
                m.content === message.content && 
                m.timestamp === message.timestamp
         );
-        
+
         if (exists) return prevMessages;
         return [...prevMessages, message];
       });
@@ -257,12 +197,12 @@ export function useChatSocket(): UseChatSocketReturn {
         ...prev,
         [userId]: isTyping
       }));
-      
+
       // Clear typing indicator after 3 seconds if no updates
       if (isTyping && typingTimeouts.current[userId]) {
         clearTimeout(typingTimeouts.current[userId]);
       }
-      
+
       if (isTyping) {
         typingTimeouts.current[userId] = setTimeout(() => {
           setIsUserTyping(prev => ({
@@ -290,7 +230,7 @@ export function useChatSocket(): UseChatSocketReturn {
     }
 
     const timestamp = new Date().toISOString();
-    
+
     socket.emit('send_message', {
       recipientId,
       content,
@@ -302,14 +242,14 @@ export function useChatSocket(): UseChatSocketReturn {
   // Function to mark messages as read
   const markAsRead = useCallback((chatId: string) => {
     if (!socket || !connected || !user) return;
-    
+
     socket.emit('mark_as_read', { chatId });
   }, [socket, connected, user]);
 
   // Function to indicate typing status
   const setTyping = useCallback((recipientId: string, isTyping: boolean) => {
     if (!socket || !connected || !user) return;
-    
+
     socket.emit('typing', { recipientId, isTyping });
   }, [socket, connected, user]);
 
