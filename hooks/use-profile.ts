@@ -40,6 +40,7 @@ export function useProfile() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(profileData),
+        cache: 'no-store'
       });
       
       if (!res.ok) {
@@ -48,6 +49,12 @@ export function useProfile() {
       }
       
       const updatedProfile = await res.json();
+      
+      // Force refresh the session
+      await fetch('/api/auth/session', { 
+        method: 'GET',
+        cache: 'no-store'
+      });
       
       // Update the session data
       await update({

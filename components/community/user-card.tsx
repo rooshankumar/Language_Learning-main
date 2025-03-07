@@ -121,3 +121,90 @@ export function UserCard({ user }: UserCardProps) {
     </Card>
   )
 }
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { MessageCircle, User as UserIcon } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+
+interface User {
+  _id: string;
+  name: string;
+  image: string;
+  bio?: string;
+  nativeLanguage?: string;
+  learningLanguage?: string;
+  lastSeen?: string;
+  online?: boolean;
+}
+
+interface UserCardProps {
+  user: User;
+  onChat: () => void;
+  onViewProfile: () => void;
+}
+
+export default function UserCard({ user, onChat, onViewProfile }: UserCardProps) {
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
+  };
+
+  const lastActive = user.lastSeen 
+    ? formatDistanceToNow(new Date(user.lastSeen), { addSuffix: true }) 
+    : "Unknown";
+
+  return (
+    <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-start space-x-4">
+        <Avatar className="h-12 w-12">
+          <AvatarImage src={user.image} alt={user.name} />
+          <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center">
+            <h3 className="font-medium truncate">{user.name}</h3>
+            {user.online && (
+              <span className="ml-2 h-2 w-2 rounded-full bg-green-500" title="Online"></span>
+            )}
+          </div>
+          
+          <div className="mt-1 flex flex-wrap gap-1">
+            {user.nativeLanguage && (
+              <Badge variant="outline" className="text-xs">
+                Speaks: {user.nativeLanguage}
+              </Badge>
+            )}
+            {user.learningLanguage && (
+              <Badge variant="outline" className="text-xs">
+                Learning: {user.learningLanguage}
+              </Badge>
+            )}
+          </div>
+          
+          {user.bio && (
+            <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{user.bio}</p>
+          )}
+          
+          <p className="text-xs text-muted-foreground mt-2">
+            {user.online ? "Active now" : `Last active ${lastActive}`}
+          </p>
+        </div>
+      </div>
+      
+      <div className="mt-4 flex space-x-2">
+        <Button size="sm" variant="outline" onClick={onChat} className="flex-1">
+          <MessageCircle className="h-4 w-4 mr-2" />
+          Chat
+        </Button>
+        <Button size="sm" variant="outline" onClick={onViewProfile} className="flex-1">
+          <UserIcon className="h-4 w-4 mr-2" />
+          Profile
+        </Button>
+      </div>
+    </div>
+  );
+}

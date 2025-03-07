@@ -55,10 +55,24 @@ export async function POST(req: Request) {
     if (result && result.secure_url) {
       await connectToDatabase();
       
-      await User.updateOne(
+      const updateResult = await User.findOneAndUpdate(
         { email: session.user.email },
-        { $set: { image: result.secure_url } }
+        { $set: { image: result.secure_url } },
+        { new: true }
       );
+      
+      if (!updateResult) {
+        return NextResponse.json(
+          { message: "User not found" },
+          { status: 404 }
+        );
+      }
+      
+      // Manually update the session
+      await fetch('/api/auth/session', { 
+        method: 'GET',
+        cache: 'no-store'
+      });
       
       return NextResponse.json({ 
         message: "Image uploaded successfully", 
