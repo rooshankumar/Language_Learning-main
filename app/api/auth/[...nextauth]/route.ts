@@ -1,54 +1,40 @@
 import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
+import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { MongoDBAdapter } from "@auth/mongodb-adapter";
+// Using adapter is commented out since we're handling auth manually
+// import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import { connectToDatabase } from "@/lib/mongoose";
 import User from "@/models/User";
 import clientPromise from "@/lib/mongodb";
 
-const handler = NextAuth({
-  adapter: MongoDBAdapter(clientPromise),
+export const authOptions: NextAuthOptions = {
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-      profile(profile) {
-        return {
-          id: profile.sub,
-          name: profile.name,
-          email: profile.email,
-          image: profile.picture,
-          emailVerified: profile.email_verified ? new Date() : null,
-        }
-      }
-    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Missing email or password");
+          throw new Error("Invalid credentials");
         }
 
         await connectToDatabase();
 
         const user = await User.findOne({ email: credentials.email });
 
-        if (!user) {
-          throw new Error("No user found with this email");
+        if (!user || !user.password) {
+          throw new Error("User not found");
         }
 
-        if (!user.password) {
-          throw new Error("Please log in with the method you used to create your account");
-        }
+        const isPasswordCorrect = await bcrypt.compare(
+          credentials.password,
+          user.password
+        );
 
-        const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
-
-        if (!isPasswordValid) {
+        if (!isPasswordCorrect) {
           throw new Error("Invalid password");
         }
 
@@ -62,65 +48,33 @@ const handler = NextAuth({
       }
     })
   ],
+  debug: process.env.NODE_ENV === "development",
   session: {
     strategy: "jwt",
   },
+  secret: process.env.NEXTAUTH_SECRET,
+  pages: {
+    signIn: "/sign-in",
+    signOut: "/sign-out",
+    error: "/error",
+  },
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.isOnboarded = user.isOnboarded;
       }
-
-      // Update user in database when profile is updated
-      if (trigger === "update" && session) {
-        token = { ...token, ...session };
-      }
-
       return token;
     },
     async session({ session, token }) {
-      // Add user ID to session
-      if (session.user && token.sub) {
-        session.user.id = token.sub;
-      }
-
-      // Add onboarding status to session
-      if (token.isOnboarded !== undefined) {
+      if (token) {
+        session.user.id = token.id;
         session.user.isOnboarded = token.isOnboarded;
       }
-
-      // Make sure session is updated with latest user data
-      if (session.user && token.sub) {
-        try {
-          // Get latest user data from database
-          await connectToDatabase();
-          const user = await User.findById(token.sub);
-          if (user) {
-            session.user.isOnboarded = user.isOnboarded || false;
-            // Add other user fields you might need
-          }
-        } catch (error) {
-          console.error("Error fetching user data for session:", error);
-        }
-      }
-
       return session;
-    },
-    async redirect({ url, baseUrl }) {
-      // Allows relative callback URLs
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allows callback URLs on the same origin
-      else if (new URL(url).origin === baseUrl) return url;
-      return baseUrl;
     }
-  },
-  pages: {
-    signIn: "/sign-in",
-    error: "/sign-in",
-    verifyRequest: "/verify-email",
-  },
-  secret: process.env.NEXTAUTH_SECRET
-});
+  }
+};
 
+const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
