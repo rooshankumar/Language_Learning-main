@@ -1,0 +1,89 @@
+### Objective:
+Build a **real-time language learning community** with **Google OAuth and email/password login**, allowing users to sign up, log in, update their profile, and chat instantly using **MongoDB, NextAuth.js, and WebSockets**.
+
+---
+
+### 🔹 Features to Implement:
+✅ **Authentication with Google & Email/Password (NextAuth.js + MongoDB)**  
+- Users should **sign up/log in** using **Google or email/password**.  
+- If using **Google login**, store **Google profile data (name, email, profile picture)** in MongoDB.  
+- If using **email/password**, users should **receive a verification email**.  
+- Passwords should be **hashed using bcrypt** for security.  
+- Login should persist across sessions using JWT.  
+- If a user logs in successfully, redirect them **directly to the community page**.  
+- Prevent unauthorized users from accessing private routes (e.g., chat, profile).  
+
+✅ **Onboarding & Profile Setup**  
+- After signing up, users must complete their profile **once** (Name, Age, Bio, Profile Pic, Native Language, Learning Language, Interests).  
+- Profile data should be **stored permanently** in MongoDB.  
+- Users should be able to **update their profile anytime** via settings.  
+- Other users should be able to **view profile details, including profile pictures**.  
+- **Profile picture upload** should be enabled (store in **MongoDB GridFS** or **Cloudinary**).  
+
+✅ **Real-Time Chat & Instant Notifications (WebSockets + MongoDB)**  
+- Implement **WebSockets (Socket.io)** for **instant messaging**.  
+- Messages should **update instantly** without needing to refresh the page.  
+- Users should receive **live notifications for new messages**.  
+- Display **user online/offline status** in chat.  
+- Store chat history in MongoDB so messages persist.  
+
+✅ **Navigation & Redirection Fixes**  
+- Users **should not see the signup page again** after logging in.  
+- If **not logged in**, redirect them to the login page.  
+- If **logged in**, send them **directly to the community page**.  
+- Users **should not see the dashboard before login**.  
+
+✅ **SEO Optimization & Google Ranking**  
+- Ensure **server-side rendering (SSR)** for faster page loads.  
+- Add **SEO metadata** for better Google search visibility.  
+- Implement a **blog section** with articles on language learning, tips, and culture.  
+- Optimize **page speed & caching** for performance.  
+
+---
+
+### 🔹 Tech Stack:
+- **Next.js** → SEO & SSR-friendly frontend  
+- **MongoDB (local or Atlas)** → Database for user data & chat  
+- **NextAuth.js** → Authentication (Google OAuth + Email/Password)  
+- **Mongoose** → MongoDB ORM for easy queries  
+- **WebSockets (Socket.io)** → Real-time chat & notifications  
+- **Multer or Cloudinary** → Profile picture uploads  
+- **bcrypt & JWT** → Secure password storage & authentication  
+
+---
+
+### 🔹 Steps to Implement:
+1️⃣ **Set up MongoDB connection in Replit**  
+   - Connect to **local MongoDB** or **MongoDB Atlas**.  
+   - Use **Mongoose** to create user and chat schemas.  
+
+2️⃣ **Implement authentication with NextAuth.js (Google + Email/Password)**  
+   - Configure **Google OAuth with Google Client ID & Secret**.  
+   - Add **email/password signup with email verification**.  
+   - Use **bcrypt** to hash passwords and **JWT** for sessions.  
+
+3️⃣ **Build profile setup & storage**  
+   - Allow users to **set up their profile once** after signup.  
+   - Store **profile details & profile picture** in MongoDB.  
+   - Make profile details **visible to other users**.  
+
+4️⃣ **Implement live chat with WebSockets**  
+   - Use **Socket.io** to enable **instant messaging**.  
+   - Store chat messages in MongoDB.  
+   - Send **live notifications for new messages**.  
+
+5️⃣ **Fix navigation bugs & redirections**  
+   - Redirect users **correctly after login** to the community page.  
+   - Prevent users from seeing the **signup page again after login**.  
+   - Ensure **only logged-in users** can access chat & profiles.  
+
+6️⃣ **Optimize for SEO & add blogs**  
+   - Add **SEO-friendly meta tags & SSR** for better Google ranking.  
+   - Create a **blog section** to drive organic traffic.  
+
+---
+
+### 🔹 Goal:
+Ensure a **seamless, real-time, and SEO-optimized** language learning app where users can **sign up once via Google or email, log in smoothly, chat instantly, and interact with the community without unnecessary redirects or delays**.
+
+---
