@@ -7,6 +7,8 @@ import bcrypt from "bcryptjs";
 import { connectToDatabase } from "@/lib/mongoose";
 import User from "@/models/User";
 import clientPromise from "@/lib/mongodb";
+import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
+
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -63,17 +65,28 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.isOnboarded = user.isOnboarded;
+        // Include all user data from DB
+        token.userData = user;
       }
       return token;
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id;
-        session.user.isOnboarded = token.isOnboarded;
+      if (token && session.user) {
+        session.user.id = token.id as string;
+        session.user.isOnboarded = token.isOnboarded as boolean;
+
+        // Include full user data from MongoDB
+        if (token.userData) {
+          session.user = {
+            ...session.user,
+            ...token.userData
+          };
+        }
       }
       return session;
-    }
-  }
+    },
+  },
+  adapter: MongoDBAdapter(clientPromise),
 };
 
 const handler = NextAuth(authOptions);

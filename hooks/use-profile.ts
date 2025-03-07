@@ -65,6 +65,9 @@ export function useProfile() {
         },
       });
       
+      // Force router refresh to update UI components
+      window.location.href = window.location.href;
+      
       return updatedProfile;
     } catch (error: any) {
       setError(error.message || 'An error occurred while updating the profile');

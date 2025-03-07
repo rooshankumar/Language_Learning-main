@@ -1,15 +1,18 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../auth/[...nextauth]/route';
+import { connectToDatabase } from '@/lib/mongoose';
+import User from '@/models/User';
 
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { connectToDatabase } from "@/lib/mongoose";
-import User from "@/models/User";
-
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.email) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Unauthorized' }),
+        { status: 401 }
+      );
     }
 
     await connectToDatabase();
@@ -17,12 +20,13 @@ export async function GET(req: Request) {
     const user = await User.findOne({ email: session.user.email });
 
     if (!user) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
+      return new NextResponse(
+        JSON.stringify({ message: 'User not found' }),
+        { status: 404 }
+      );
     }
 
-    // Don't send password in the response
-    const userProfile = {
-      id: user._id.toString(),
+    return NextResponse.json({
       name: user.name,
       email: user.email,
       image: user.image,
@@ -32,70 +36,71 @@ export async function GET(req: Request) {
       learningLanguage: user.learningLanguage,
       interests: user.interests,
       isOnboarded: user.isOnboarded,
-    };
-
-    return NextResponse.json(userProfile);
-  } catch (error: any) {
-    console.error("Profile fetch error:", error);
-    return NextResponse.json(
-      { message: error.message || "Failed to fetch profile" },
-      { status: 500 },
+    });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    return new NextResponse(
+      JSON.stringify({ message: 'Error fetching user profile' }),
+      { status: 500 }
     );
   }
 }
 
-export async function PATCH(req: Request) {
+export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.email) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Unauthorized' }),
+        { status: 401 }
+      );
     }
 
-    const data = await req.json();
+    const body = await request.json();
+
     await connectToDatabase();
 
-    const user = await User.findOne({ email: session.user.email });
+    const updatedUser = await User.findOneAndUpdate(
+      { email: session.user.email },
+      { 
+        $set: { 
+          ...body,
+          isOnboarded: true 
+        } 
+      },
+      { new: true }
+    );
 
-    if (!user) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
+    if (!updatedUser) {
+      return new NextResponse(
+        JSON.stringify({ message: 'User not found' }),
+        { status: 404 }
+      );
     }
 
-    // Update user fields
-    Object.keys(data).forEach((key) => {
-      if (key !== "password" && key !== "email") {
-        // Don't allow updating email or password through this route
-        user[key] = data[key];
-      }
+    // Update session to immediately reflect changes
+    await fetch('/api/auth/session', { 
+      method: 'GET', 
+      cache: 'no-store'
     });
 
-    // Mark user as onboarded if profile data is being updated
-    if (data.nativeLanguage || data.learningLanguage) {
-      user.isOnboarded = true;
-    }
-
-    await user.save();
-
-    // Don't send password in the response
-    const updatedProfile = {
-      id: user._id.toString(),
-      name: user.name,
-      email: user.email,
-      image: user.image,
-      bio: user.bio,
-      age: user.age,
-      nativeLanguage: user.nativeLanguage,
-      learningLanguage: user.learningLanguage,
-      interests: user.interests,
-      isOnboarded: user.isOnboarded,
-    };
-
-    return NextResponse.json(updatedProfile);
-  } catch (error: any) {
-    console.error("Profile update error:", error);
-    return NextResponse.json(
-      { message: error.message || "Failed to update profile" },
-      { status: 500 },
+    return NextResponse.json({
+      name: updatedUser.name,
+      email: updatedUser.email,
+      image: updatedUser.image,
+      bio: updatedUser.bio,
+      age: updatedUser.age,
+      nativeLanguage: updatedUser.nativeLanguage,
+      learningLanguage: updatedUser.learningLanguage,
+      interests: updatedUser.interests,
+      isOnboarded: updatedUser.isOnboarded,
+    });
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    return new NextResponse(
+      JSON.stringify({ message: 'Error updating user profile' }),
+      { status: 500 }
     );
   }
 }

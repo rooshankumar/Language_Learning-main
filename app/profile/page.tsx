@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link"; // Added import for Link component
+import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { AppShell } from "@/components/app-shell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, Home, ArrowLeft } from "lucide-react"; // Added icons
+import { X, Home, ArrowLeft, Camera } from "lucide-react";
 
 interface UserData {
   displayName?: string;
@@ -41,6 +41,7 @@ export default function ProfilePage() {
   const { user, updateUserProfile, signOut } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // User profile data
   const [name, setName] = useState("");
@@ -73,41 +74,22 @@ export default function ProfilePage() {
     if (typedUser.interests) setInterests(typedUser.interests);
   }, [user, router]);
 
-  // Handle profile image upload
-  const handleProfileImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user || !e.target.files || !e.target.files[0]) return;
 
     setIsLoading(true);
     try {
       const file = e.target.files[0];
-      const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
-      const { storage } = await import('@/lib/firebase');
+      // Placeholder for Replit Object Storage upload (replace with actual implementation)
+      const uploadUrl = await uploadProfileImage(file, user.uid);
 
-      if (!storage) {
-        throw new Error('Firebase storage is not initialized');
-      }
-
-      // Create a reference to the storage location
-      const storageRef = ref(storage, `profile-images/${user.uid}`);
-
-      // Upload the file
-      await uploadBytes(storageRef, file);
-
-      // Get the download URL
-      const downloadURL = await getDownloadURL(storageRef);
-
-      // Update user's profile with new photo URL
-      await updateUserProfile({
-        photoURL: downloadURL
-      });
-
-      // Update local state
-      setPhotoURL(downloadURL);
-
-      toast({
-        title: "Profile image updated",
-        description: "Your profile picture has been updated successfully.",
-      });
+      await updateUserProfile({ photoURL: uploadUrl });
+      setPhotoURL(uploadUrl);
+      toast({ title: "Profile image updated", description: "Your profile picture has been updated successfully." });
     } catch (error) {
       console.error("Profile image upload error:", error);
       toast({
@@ -120,7 +102,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Update general profile information
   const handleGeneralUpdate = async () => {
     if (!user) return;
 
@@ -158,7 +139,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Update language preferences
   const handleLanguageUpdate = async () => {
     if (!user) return;
 
@@ -185,7 +165,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Update interests
   const handleInterestsUpdate = async () => {
     if (!user) return;
 
@@ -211,7 +190,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Handle account deletion
   const handleDeleteAccount = async () => {
     // This would be implemented with Firebase Auth
     toast({
@@ -221,38 +199,32 @@ export default function ProfilePage() {
     });
   };
 
-  // Handle adding a native language
   const handleAddNativeLanguage = (language: string) => {
     if (!nativeLanguages.includes(language)) {
       setNativeLanguages([...nativeLanguages, language]);
     }
   };
 
-  // Handle removing a native language
   const handleRemoveNativeLanguage = (language: string) => {
     setNativeLanguages(nativeLanguages.filter(lang => lang !== language));
   };
 
-  // Handle adding a learning language
   const handleAddLearningLanguage = (language: string) => {
     if (!learningLanguages.includes(language)) {
       setLearningLanguages([...learningLanguages, language]);
     }
   };
 
-  // Handle removing a learning language
   const handleRemoveLearningLanguage = (language: string) => {
     setLearningLanguages(learningLanguages.filter(lang => lang !== language));
   };
 
-  // Handle adding an interest
   const handleAddInterest = (interest: string) => {
     if (!interests.includes(interest)) {
       setInterests([...interests, interest]);
     }
   };
 
-  // Handle removing an interest
   const handleRemoveInterest = (interest: string) => {
     setInterests(interests.filter(int => int !== interest));
   };
@@ -290,7 +262,7 @@ export default function ProfilePage() {
       <AppShell>
         <div className="relative z-10 flex justify-center items-center min-h-[calc(100vh-4rem)] p-4">
           <div className="w-full max-w-4xl">
-            <div className="w-full mb-6 flex justify-between items-center"> {/* Added navigation buttons */}
+            <div className="w-full mb-6 flex justify-between items-center">
               <Link href="/">
                 <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent">
                   <ArrowLeft className="h-5 w-5" />
@@ -314,7 +286,6 @@ export default function ProfilePage() {
                 <TabsTrigger value="settings">Settings</TabsTrigger>
               </TabsList>
 
-              {/* General Tab */}
               <TabsContent value="general">
                 <Card className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm">
                   <CardHeader>
@@ -324,35 +295,28 @@ export default function ProfilePage() {
                   <CardContent className="space-y-6">
                     <div className="flex flex-col md:flex-row gap-6">
                       <div className="md:w-1/3 flex flex-col items-center justify-start space-y-4">
-                        <div className="relative h-48 w-48 rounded-full overflow-hidden border-4 border-primary/20">
-                          <img
-                            src={photoURL || "/placeholder-user.jpg"}
-                            alt="Profile"
-                            className="h-full w-full object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <Label
-                              htmlFor="profile-image"
-                              className="cursor-pointer text-white font-medium text-center p-2"
-                            >
-                              Change Photo
-                            </Label>
+                        <div
+                          className="relative cursor-pointer group"
+                          onClick={handleAvatarClick}
+                        >
+                          <div className="relative h-48 w-48 rounded-full overflow-hidden border-4 border-primary/20">
+                            <img
+                              src={photoURL || "/placeholder-user.jpg"}
+                              alt="Profile"
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition">
+                            <Camera className="text-white h-6 w-6" />
                           </div>
                         </div>
-                        <Input
-                          id="profile-image"
+                        <input
                           type="file"
+                          ref={fileInputRef}
                           accept="image/*"
                           className="hidden"
-                          onChange={handleProfileImageUpload}
+                          onChange={handleImageChange}
                         />
-                        <Button 
-                          variant="outline" 
-                          className="w-full"
-                          onClick={() => document.getElementById('profile-image')?.click()}
-                        >
-                          Upload New Photo
-                        </Button>
                         <p className="text-xs text-muted-foreground text-center">
                           Recommended: Square image, at least 400x400px
                         </p>
@@ -403,7 +367,6 @@ export default function ProfilePage() {
                 </Card>
               </TabsContent>
 
-              {/* Languages Tab */}
               <TabsContent value="languages">
                 <Card className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm">
                   <CardHeader>
@@ -483,7 +446,6 @@ export default function ProfilePage() {
                 </Card>
               </TabsContent>
 
-              {/* Interests Tab */}
               <TabsContent value="interests">
                 <Card className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm">
                   <CardHeader>
@@ -531,7 +493,6 @@ export default function ProfilePage() {
                 </Card>
               </TabsContent>
 
-              {/* Settings Tab */}
               <TabsContent value="settings">
                 <Card className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm">
                   <CardHeader>
@@ -573,3 +534,13 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+// Placeholder for Replit Object Storage upload function (requires implementation)
+const uploadProfileImage = async (file: File, userId: string): Promise<string> => {
+  // Implement your Replit Object Storage upload logic here.  This is a placeholder.
+  // This function should upload the file to Replit storage and return the URL.
+  // Example using a hypothetical 'replitStorage' library:
+  // const url = await replitStorage.uploadFile(file, `users/${userId}/profile.jpg`);
+  // return url;
+  throw new Error('Replit Object Storage upload not implemented');
+};

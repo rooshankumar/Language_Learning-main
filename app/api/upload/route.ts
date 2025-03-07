@@ -92,3 +92,52 @@ export async function POST(req: Request) {
     );
   }
 }
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]/route';
+import { uploadImage } from '@/lib/storage';
+import { connectToDatabase } from '@/lib/mongoose';
+import User from '@/models/User';
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Unauthorized' }),
+        { status: 401 }
+      );
+    }
+    
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
+    
+    if (!file) {
+      return new NextResponse(
+        JSON.stringify({ message: 'No file provided' }),
+        { status: 400 }
+      );
+    }
+    
+    // Upload the image and get the URL
+    const imageUrl = await uploadImage(file);
+    
+    // Update the user's profile with the new image URL
+    await connectToDatabase();
+    
+    // Update the user record
+    await User.findOneAndUpdate(
+      { email: session.user.email },
+      { $set: { image: imageUrl } }
+    );
+    
+    return NextResponse.json({ imageUrl });
+  } catch (error) {
+    console.error('Error uploading profile image:', error);
+    return new NextResponse(
+      JSON.stringify({ message: 'Error uploading profile image' }),
+      { status: 500 }
+    );
+  }
+}

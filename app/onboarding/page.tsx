@@ -1,7 +1,6 @@
-
 "use client"
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { X } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Camera } from "lucide-react";
 
 const languages = [
   "English", "Spanish", "French", "German", "Italian", "Portuguese", "Russian",
@@ -29,6 +30,7 @@ export default function Onboarding() {
   const { user, updateUserProfile } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState(1);
   const [nativeLanguages, setNativeLanguages] = useState<string[]>([]);
@@ -38,6 +40,9 @@ export default function Onboarding() {
   const [bio, setBio] = useState("");
   const [age, setAge] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState(user?.image || "/placeholder-user.jpg");
+
 
   // Handle user not being authenticated
   if (!user) {
@@ -90,6 +95,23 @@ export default function Onboarding() {
     setInterests(interests.filter(int => int !== interest));
   };
 
+  // Handle image change
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
   // Handle next step
   const handleNextStep = () => {
     if (step === 1 && (nativeLanguages.length === 0 || learningLanguages.length === 0)) {
@@ -128,6 +150,26 @@ export default function Onboarding() {
   const handleComplete = async () => {
     setIsLoading(true);
     try {
+      let imageUrl = user?.image;
+
+      // Handle image upload if there's a file
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('file', imageFile);
+
+        const uploadRes = await fetch('/api/upload', { // Placeholder API endpoint - needs to be implemented
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error('Failed to upload image');
+        }
+
+        const { imageUrl: uploadedImageUrl } = await uploadRes.json();
+        imageUrl = uploadedImageUrl;
+      }
+
       await updateUserProfile({
         nativeLanguages,
         learningLanguages,
@@ -135,8 +177,8 @@ export default function Onboarding() {
         interests,
         bio,
         age: age ? parseInt(age) : null,
-        isOnboarded: true,  // Use the correct field name that matches the middleware check
-        onboardingCompleted: true,
+        isOnboarded: true,
+        ...(imageUrl && { image: imageUrl }),
       });
 
       toast({
@@ -146,11 +188,10 @@ export default function Onboarding() {
 
       // Force refresh session before redirect
       await fetch('/api/auth/session', { method: 'GET' });
-      
-      // Add a small delay to ensure the session is updated
+
       setTimeout(() => {
         router.push("/");
-        router.refresh(); // Force router refresh
+        router.refresh();
       }, 1000);
     } catch (error) {
       console.error("Onboarding error:", error);
@@ -178,7 +219,7 @@ export default function Onboarding() {
         </video>
         <div className="absolute inset-0 bg-background/70 backdrop-blur-sm"></div>
       </div>
-      
+
       <Card className="w-full max-w-lg shadow-lg bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm relative z-10">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">Set Up Your Profile</CardTitle>
@@ -305,29 +346,69 @@ export default function Onboarding() {
 
           {step === 3 && (
             <div className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="bio">About You</Label>
-                <Textarea
-                  id="bio"
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  placeholder="Tell others about yourself, your learning goals, and what you're looking for in language partners."
-                  rows={5}
-                />
-              </div>
+              <form onSubmit={handleComplete}>
+                {/* Profile Image Upload */}
+                <div className="flex flex-col items-center space-y-3 mb-6">
+                  <div
+                    className="relative cursor-pointer group"
+                    onClick={handleAvatarClick}
+                  >
+                    <Avatar className="w-24 h-24">
+                      <AvatarImage src={imagePreview} />
+                      <AvatarFallback>{user?.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition">
+                      <Camera className="text-white" />
+                    </div>
+                  </div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageChange}
+                  />
+                  <span className="text-sm text-muted-foreground">Click to upload profile picture</span>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="age">Age</Label>
-                <Input
-                  id="age"
-                  type="number"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  placeholder="Your age"
-                  min="13"
-                  max="120"
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    value={user?.name || ""}
+                    onChange={(e) => {/* This needs proper state management */}}
+                    placeholder="Your name"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bio">About You</Label>
+                  <Textarea
+                    id="bio"
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="Tell others about yourself, your learning goals, and what you're looking for in language partners."
+                    rows={5}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="age">Age</Label>
+                  <Input
+                    id="age"
+                    type="number"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    placeholder="Your age"
+                    min="13"
+                    max="120"
+                  />
+                </div>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? "Saving..." : "Complete"}
+                </Button>
+              </form>
             </div>
           )}
         </CardContent>
@@ -343,8 +424,8 @@ export default function Onboarding() {
             {isLoading
               ? "Processing..."
               : step === 3
-              ? "Complete Setup"
-              : "Next"}
+                ? "Complete Setup"
+                : "Next"}
           </Button>
         </CardFooter>
       </Card>
