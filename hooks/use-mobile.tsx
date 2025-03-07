@@ -1,10 +1,11 @@
+
 import * as React from "react"
+import useIsomorphicLayoutEffect from "./use-isomorphic-layout-effect"
 
 const MOBILE_BREAKPOINT = 768
 
-import useIsomorphicLayoutEffect from "./use-isomorphic-layout-effect"
-
 export function useIsMobile() {
+  // Initialize with false to avoid hydration mismatch
   const [isMobile, setIsMobile] = React.useState<boolean>(false)
 
   useIsomorphicLayoutEffect(() => {
@@ -12,10 +13,15 @@ export function useIsMobile() {
     const onChange = () => {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     }
-    mql.addEventListener("change", onChange)
+    
+    // Set initial value
     setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    
+    // Modern API
+    mql.addEventListener("change", onChange)
+    
     return () => mql.removeEventListener("change", onChange)
   }, [])
 
-  return !!isMobile
+  return isMobile
 }
