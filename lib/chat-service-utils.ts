@@ -1,22 +1,27 @@
 
 import { chatService } from './chat-service';
 
-// Re-export the functions to maintain compatibility
-export function subscribeToChatMessages(chatId: string, callback: (messages: any[]) => void) {
+export const subscribeToChatMessages = (chatId: string, callback: any) => {
   return chatService.subscribeToChatMessages(chatId, callback);
-}
+};
 
-export function markMessagesAsRead(chatId: string, userId: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    try {
-      chatService.markMessagesAsRead(chatId, userId);
-      resolve();
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
+export const markMessagesAsRead = (chatId: string, userId: string) => {
+  return chatService.markMessagesAsRead(chatId, userId);
+};
 
-export function startChat(recipientId: string): Promise<string> {
+export const startChat = async (recipientId: string) => {
   return chatService.startChat(recipientId);
-}
+};
+
+export const setCurrentUser = (user: any) => {
+  if (!user || !user.id) {
+    console.error('Invalid user provided to setCurrentUser');
+    return;
+  }
+  
+  chatService.setUser({
+    id: user.id,
+    name: user.name || 'User',
+    avatar: user.image
+  });
+};

@@ -1,4 +1,3 @@
-
 import { io, Socket } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -36,7 +35,7 @@ class ChatService {
     try {
       const SOCKET_URL = process.env.NODE_ENV === 'production'
         ? window.location.origin
-        : 'http://localhost:3001';
+        : 'http://localhost:3000';
 
       this.socket = io(SOCKET_URL, {
         reconnectionAttempts: 5,
@@ -80,9 +79,9 @@ class ChatService {
       console.error('Invalid user object provided to chatService.setUser');
       return;
     }
-    
+
     this.currentUser = user;
-    
+
     if (this.socket && this.socket.connected && this.currentUser) {
       this.socket.emit('join', { 
         userId: this.currentUser.id, 
@@ -113,15 +112,21 @@ class ChatService {
   public sendMessage(roomId: string, content: string) {
     if (!this.socket || !this.currentUser) return;
 
+    const messageId = uuidv4();
+
     this.socket.emit('message', {
+      id: messageId,
       room: roomId,
       message: content,
       sender: {
         id: this.currentUser.id,
         name: this.currentUser.name,
         avatar: this.currentUser.avatar
-      }
+      },
+      timestamp: new Date().toISOString()
     });
+
+    return messageId;
   }
 
   public onMessage(callback: (message: Message) => void) {
@@ -144,125 +149,75 @@ class ChatService {
       this.socket = null;
     }
   }
-  
-  // Added missing exported functions
+
   public subscribeToChatMessages(chatId: string, callback: (messages: Message[]) => void) {
     if (!this.socket) return () => {};
-    
+
     this.socket.emit('subscribeToChatMessages', chatId);
-    
+
     const messageHandler = (messages: Message[]) => {
       if (messages && Array.isArray(messages)) {
         callback(messages);
       }
     };
-    
+
     this.socket.on(`chatMessages:${chatId}`, messageHandler);
-    
+
     return () => {
       this.socket?.off(`chatMessages:${chatId}`, messageHandler);
       this.socket?.emit('unsubscribeFromChatMessages', chatId);
     };
   }
-  
+
   public markMessagesAsRead(chatId: string, userId: string) {
     if (!this.socket) return;
-    
+
     this.socket.emit('markMessagesAsRead', {
       chatId,
       userId
     });
   }
-  
+
   public startChat(recipientId: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      try {
-        if (!recipientId) {
-          reject(new Error('Recipient ID is required'));
+      if (!this.socket) {
+        console.log('Socket not initialized, attempting to initialize');
+        this.initialize();
+
+        if (!this.socket) {
+          reject(new Error('Failed to initialize socket connection'));
           return;
         }
-        
-        // If socket is not initialized, try to initialize it
-        if (!this.socket) {
-          console.log('Socket not initialized, attempting to initialize');
-          this.initialize();
-          
-          if (!this.socket) {
-            reject(new Error('Failed to initialize socket connection'));
-            return;
-          }
-        }
-        
-        // If user is not set, try to get it from local storage or other sources
-        if (!this.currentUser) {
-          console.error('Current user not set in chat service');
-          
-          // Try to fallback to Firestore directly for this operation
-          if (typeof window !== 'undefined') {
-            import('@/lib/firebase').then(({ db, auth }) => {
-              if (auth.currentUser) {
-                this.setUser({
-                  id: auth.currentUser.uid,
-                  name: auth.currentUser.displayName || 'User',
-                  avatar: auth.currentUser.photoURL
-                });
-                
-                this.continueStartChat(recipientId, resolve, reject);
-              } else {
-                reject(new Error('User not authenticated'));
-              }
-            }).catch(err => {
-              console.error('Failed to import firebase:', err);
-              reject(new Error('Authentication service unavailable'));
-            });
-            return;
-          } else {
-            reject(new Error('User not authenticated'));
-            return;
-          }
-        }
-        
-        this.continueStartChat(recipientId, resolve, reject);
-      } catch (error) {
-        console.error('Error in startChat:', error);
-        reject(error);
       }
+
+      if (!this.currentUser) {
+        reject(new Error('Not connected or user not set'));
+        return;
+      }
+
+      console.log('Starting chat with recipient:', recipientId);
+
+      this.socket.emit('startChat', {
+        userId: this.currentUser.id,
+        recipientId
+      });
+
+      const handler = (chatId: string) => {
+        console.log('Chat started with ID:', chatId);
+        resolve(chatId);
+        this.socket?.off('chatStarted', handler);
+      };
+
+      this.socket.on('chatStarted', handler);
+
+      // Add timeout to prevent hanging promises
+      setTimeout(() => {
+        this.socket?.off('chatStarted', handler);
+        reject(new Error('Timeout starting chat - server did not respond'));
+      }, 10000);
     });
-  }
-  
-  private continueStartChat(
-    recipientId: string,
-    resolve: (value: string | PromiseLike<string>) => void,
-    reject: (reason?: any) => void
-  ) {
-    if (!this.socket || !this.currentUser) {
-      reject(new Error('Socket or user still not available'));
-      return;
-    }
-    
-    console.log('Starting chat with recipient:', recipientId);
-    
-    this.socket.emit('startChat', {
-      userId: this.currentUser.id,
-      recipientId
-    });
-    
-    const handler = (chatId: string) => {
-      console.log('Chat started with ID:', chatId);
-      resolve(chatId);
-      this.socket?.off('chatStarted', handler);
-    };
-    
-    this.socket.on('chatStarted', handler);
-    
-    // Add timeout to prevent hanging promises
-    setTimeout(() => {
-      this.socket?.off('chatStarted', handler);
-      reject(new Error('Timeout starting chat - server did not respond'));
-    }, 10000);
   }
 }
 
 // Export as singleton
 export const chatService = new ChatService();
-export { subscribeToChatMessages, markMessagesAsRead, startChat } from './chat-service-utils';

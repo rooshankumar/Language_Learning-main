@@ -1,80 +1,79 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { 
-  User,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  sendPasswordResetEmail,
-  signInWithPopup,
-  GoogleAuthProvider,
-  updateProfile,
-  Auth,
-  PhoneAuthProvider,
-  signInWithPhoneNumber,
-  RecaptchaVerifier
-} from "firebase/auth";
-import { setDoc, doc, getFirestore, Firestore } from "firebase/firestore";
-import { auth as firebaseAuth, db as firebaseDb, googleProvider, phoneProvider } from "@/lib/firebase";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { Session } from "next-auth";
 
 interface AuthContextType {
-  user: User | null;
+  user: Session['user'] | null;
   loading: boolean;
   error: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name?: string) => Promise<void>;
+  signIn: (provider: string, credentials?: { email: string; password: string }) => Promise<void>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  signInWithPhone: (phoneNumber: string, recaptchaContainer: string) => Promise<string>;
-  confirmPhoneCode: (verificationId: string, code: string) => Promise<void>;
   updateUserProfile: (profileData: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: session, status } = useSession();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
+  const loading = status === "loading";
+  const user = session?.user || null;
 
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
-      setUser(user);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const signIn = async (email: string, password: string) => {
+  const handleSignIn = async (provider: string, credentials?: { email: string; password: string }) => {
     try {
-      await signInWithEmailAndPassword(firebaseAuth, email, password);
-      router.push('/');
+      if (provider === "credentials" && credentials) {
+        const result = await signIn("credentials", {
+          redirect: false,
+          email: credentials.email,
+          password: credentials.password,
+        });
+
+        if (result?.error) {
+          setError(result.error);
+          throw new Error(result.error);
+        }
+
+        router.push(session?.user?.isOnboarded ? '/' : '/onboarding');
+      } else {
+        await signIn(provider, { callbackUrl: '/' });
+      }
     } catch (error: any) {
       setError(error.message);
       throw error;
     }
   };
 
-  const signUp = async (email: string, password: string, name?: string) => {
+  const handleSignUp = async (email: string, password: string, name: string) => {
     try {
-      const { user } = await createUserWithEmailAndPassword(firebaseAuth, email, password);
-      if (name && user) {
-        await updateProfile(user, { displayName: name });
-        await setDoc(doc(firebaseDb, 'users', user.uid), {
-          uid: user.uid,
-          email: user.email,
-          displayName: name,
-          createdAt: new Date().toISOString(),
-        });
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message);
+        throw new Error(data.message);
       }
+
+      // Auto sign in after registration
+      await handleSignIn("credentials", { email, password });
+
       router.push('/onboarding');
     } catch (error: any) {
       setError(error.message);
@@ -82,108 +81,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const handleSignOut = async () => {
     try {
-      if (!googleProvider) {
-        throw new Error("Google provider is not available");
-      }
-      const result = await signInWithPopup(firebaseAuth, googleProvider);
-      const user = result.user;
-      
-      // Check if user exists in Firestore
-      const userDoc = doc(firebaseDb, 'users', user.uid);
-      await setDoc(userDoc, {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        lastSignIn: new Date().toISOString(),
-      }, { merge: true });
-      
-      router.push('/');
+      await signOut({ callbackUrl: '/sign-in' });
     } catch (error: any) {
       setError(error.message);
       throw error;
     }
   };
 
-  const signOut = async () => {
+  const handleResetPassword = async (email: string) => {
     try {
-      await firebaseSignOut(firebaseAuth);
-      router.push('/sign-in');
-    } catch (error: any) {
-      setError(error.message);
-      throw error;
-    }
-  };
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
 
-  const resetPassword = async (email: string) => {
-    try {
-      await sendPasswordResetEmail(firebaseAuth, email);
-    } catch (error: any) {
-      setError(error.message);
-      throw error;
-    }
-  };
+      const data = await res.json();
 
-  const signInWithPhone = async (phoneNumber: string, recaptchaContainer: string) => {
-    try {
-      // Ensure we're in browser environment
-      if (typeof window === 'undefined') {
-        throw new Error('Cannot use phone authentication in server-side context');
+      if (!res.ok) {
+        setError(data.message);
+        throw new Error(data.message);
       }
-      
-      // Clear any existing reCAPTCHA elements first
-      const existingRecaptcha = document.querySelector(`#${recaptchaContainer} div`);
-      if (existingRecaptcha) {
-        existingRecaptcha.remove();
-      }
-      
-      // Create a new RecaptchaVerifier with better error handling
-      let verifier;
-      try {
-        verifier = new RecaptchaVerifier(firebaseAuth, recaptchaContainer, {
-          size: 'invisible',
-          callback: () => {
-            console.log('reCAPTCHA verified');
-          },
-          'expired-callback': () => {
-            console.log('reCAPTCHA expired');
-            setError('reCAPTCHA verification expired. Please try again.');
-          }
-        });
-        
-        // Render the reCAPTCHA to make sure it's ready
-        await verifier.render();
-      } catch (recaptchaError: any) {
-        console.error('reCAPTCHA initialization error:', recaptchaError);
-        
-        // Better error message for deployment issues
-        if (recaptchaError.message.includes('_getRecaptchaConfig is not a function')) {
-          throw new Error('reCAPTCHA configuration is missing. Make sure your Firebase project has reCAPTCHA enabled and you are using a domain allowed in Firebase Console.');
-        }
-        
-        throw recaptchaError;
-      }
-      
-      // Now try to use the verifier
-      const confirmationResult = await signInWithPhoneNumber(firebaseAuth, phoneNumber, verifier);
-      return confirmationResult.verificationId;
-    } catch (error: any) {
-      console.error('Phone sign-in error:', error);
-      setError(error.message);
-      throw error;
-    }
-  };
-
-  const confirmPhoneCode = async (verificationId: string, code: string) => {
-    try {
-      const credential = PhoneAuthProvider.credential(verificationId, code);
-      if (!phoneProvider) {
-        throw new Error("Phone provider is not available");
-      }
-      await signInWithPopup(firebaseAuth, phoneProvider);
-      router.push('/');
     } catch (error: any) {
       setError(error.message);
       throw error;
@@ -193,41 +115,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateUserProfile = async (profileData: any) => {
     try {
       if (!user) throw new Error('No user logged in');
-      
-      // Only update these fields if they're provided
-      if (profileData.displayName || profileData.photoURL) {
-        // Update Firebase Auth profile
-        const authUpdateData: { displayName?: string; photoURL?: string } = {};
-        
-        if (profileData.displayName) {
-          authUpdateData.displayName = profileData.displayName;
+
+      // Handle image upload if there's a file
+      if (profileData.imageFile) {
+        const formData = new FormData();
+        formData.append('file', profileData.imageFile);
+        formData.append('userId', user.id);
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          const errorData = await uploadRes.json();
+          throw new Error(errorData.message || 'Failed to upload image');
         }
-        
-        if (profileData.photoURL) {
-          authUpdateData.photoURL = profileData.photoURL;
-        }
-        
-        if (Object.keys(authUpdateData).length > 0) {
-          await updateProfile(user, authUpdateData);
-        }
+
+        const { imageUrl } = await uploadRes.json();
+        profileData.image = imageUrl;
       }
-      
-      // Update Firestore user document - only with the fields that are actually provided
-      const cleanedData = { ...profileData };
-      
-      // Remove undefined values and empty strings
-      Object.keys(cleanedData).forEach(key => {
-        if (cleanedData[key] === undefined || (typeof cleanedData[key] === 'string' && cleanedData[key].trim() === '')) {
-          delete cleanedData[key];
-        }
+
+      // Remove the file from the data before sending to API
+      delete profileData.imageFile;
+
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profileData),
       });
-      
-      if (Object.keys(cleanedData).length > 0) {
-        await setDoc(doc(firebaseDb, 'users', user.uid), {
-          ...cleanedData,
-          updatedAt: new Date().toISOString(),
-        }, { merge: true });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Failed to update profile');
       }
+
+      // Update the session
+      const updatedSession = {
+        ...session,
+        user: {
+          ...session?.user,
+          ...profileData,
+        },
+      };
+
+      // Force a refresh of the session
+      await fetch('/api/auth/session', { method: 'GET' });
+
+      return await res.json();
     } catch (error: any) {
       console.error("Profile update error:", error);
       setError(error.message);
@@ -239,13 +176,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     loading,
     error,
-    signIn,
-    signUp,
-    signOut,
-    resetPassword,
-    signInWithGoogle,
-    signInWithPhone,
-    confirmPhoneCode,
+    signIn: handleSignIn,
+    signUp: handleSignUp,
+    signOut: handleSignOut,
+    resetPassword: handleResetPassword,
     updateUserProfile,
   };
 
