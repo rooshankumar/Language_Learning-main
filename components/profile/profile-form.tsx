@@ -78,6 +78,12 @@ export function ProfileForm({ user, onComplete }: ProfileFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Don't submit if already loading
+    if (isLoading) {
+      return;
+    }
+    
     setIsLoading(true)
 
     try {
@@ -229,7 +235,10 @@ export function ProfileForm({ user, onComplete }: ProfileFormProps) {
           <Button variant="outline" type="button" onClick={onComplete}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button 
+            type="submit" 
+            disabled={isLoading || (!nativeLanguage && !learningLanguage && !bio && interests.length === 0)}
+          >
             {isLoading ? "Saving..." : "Save Changes"}
           </Button>
         </CardFooter>

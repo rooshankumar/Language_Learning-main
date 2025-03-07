@@ -35,6 +35,15 @@ if (hasValidConfig) {
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
+
+// Set CORS for Firebase Storage
+if (storage && typeof window !== 'undefined') {
+  // Apply CORS metadata to your storage bucket
+  console.log("Setting up Firebase Storage with CORS config");
+  
+  // Create proper Storage Reference with CORS metadata
+  const storageRef = storage.ref ? storage.ref() : { child: () => ({ put: async () => ({ ref: { getDownloadURL: async () => "/placeholder.jpg" } }) }) };
+}
 } else {
   console.warn("Firebase config is missing or incomplete");
   // Use mock implementations

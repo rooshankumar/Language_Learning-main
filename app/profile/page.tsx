@@ -124,12 +124,22 @@ export default function ProfilePage() {
   const handleGeneralUpdate = async () => {
     if (!user) return;
 
+    // Don't proceed if no changes were made
+    if (!name && !bio && !age) {
+      toast({
+        title: "No changes",
+        description: "Please make changes before saving.",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       await updateUserProfile({
         name,
         bio,
         age: age ? parseInt(age) : null,
+        updatedAt: new Date().toISOString(),
       });
 
       toast({

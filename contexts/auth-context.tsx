@@ -157,19 +157,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       if (!user) throw new Error('No user logged in');
       
-      // Update Firebase Auth profile
-      await updateProfile(user, {
-        displayName: profileData.displayName,
-        photoURL: profileData.photoURL,
+      // Only update these fields if they're provided
+      if (profileData.displayName || profileData.photoURL) {
+        // Update Firebase Auth profile
+        const authUpdateData: { displayName?: string; photoURL?: string } = {};
+        
+        if (profileData.displayName) {
+          authUpdateData.displayName = profileData.displayName;
+        }
+        
+        if (profileData.photoURL) {
+          authUpdateData.photoURL = profileData.photoURL;
+        }
+        
+        if (Object.keys(authUpdateData).length > 0) {
+          await updateProfile(user, authUpdateData);
+        }
+      }
+      
+      // Update Firestore user document - only with the fields that are actually provided
+      const cleanedData = { ...profileData };
+      
+      // Remove undefined values and empty strings
+      Object.keys(cleanedData).forEach(key => {
+        if (cleanedData[key] === undefined || (typeof cleanedData[key] === 'string' && cleanedData[key].trim() === '')) {
+          delete cleanedData[key];
+        }
       });
-
-      // Update Firestore user document
-      await setDoc(doc(firebaseDb, 'users', user.uid), {
-        ...profileData,
-        updatedAt: new Date().toISOString(),
-      }, { merge: true });
-
+      
+      if (Object.keys(cleanedData).length > 0) {
+        await setDoc(doc(firebaseDb, 'users', user.uid), {
+          ...cleanedData,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      }
     } catch (error: any) {
+      console.error("Profile update error:", error);
       setError(error.message);
       throw error;
     }
