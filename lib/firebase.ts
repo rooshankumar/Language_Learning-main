@@ -36,13 +36,25 @@ if (hasValidConfig) {
   db = getFirestore(app);
   storage = getStorage(app);
 
-// Set CORS for Firebase Storage
+// Set up Firebase Storage with proper CORS
 if (storage && typeof window !== 'undefined') {
-  // Apply CORS metadata to your storage bucket
-  console.log("Setting up Firebase Storage with CORS config");
-  
-  // Create proper Storage Reference with CORS metadata
-  const storageRef = storage.ref ? storage.ref() : { child: () => ({ put: async () => ({ ref: { getDownloadURL: async () => "/placeholder.jpg" } }) }) };
+  try {
+    console.log("Setting up Firebase Storage with CORS config");
+    
+    // Make sure Firebase Storage has proper CORS settings
+    // This needs to be done in Firebase Console, but we can check the connection
+    const testRef = ref(storage, 'cors-test.txt');
+    
+    // Add event listeners for potential CORS issues
+    window.addEventListener('error', (event) => {
+      if (event.message && event.message.includes('CORS')) {
+        console.error('CORS Error detected:', event);
+        // Log for debugging but continue execution
+      }
+    });
+  } catch (error) {
+    console.error("Error setting up storage:", error);
+  }
 }
 } else {
   console.warn("Firebase config is missing or incomplete");

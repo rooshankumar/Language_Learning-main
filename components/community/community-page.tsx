@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -6,14 +5,16 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { AppShell } from '@/components/app-shell';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, getDoc, onSnapshot, query, Firestore } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, onSnapshot, query, addDoc, where } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { MessageCircle } from 'lucide-react';
 import { startChat } from '@/lib/chat-service';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { toast } from '@/components/ui/use-toast';
+
 
 interface User {
   uid: string;
@@ -30,68 +31,117 @@ export default function CommunityPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
     if (!user || !db) return;
 
     setIsLoading(true);
-    
+
     // Create a query for all users except the current user
     const usersRef = collection(db, 'users');
     const usersQuery = query(usersRef);
-    
+
     // Set up real-time listener
     const unsubscribe = onSnapshot(usersQuery, (snapshot) => {
       const usersList: User[] = [];
-      
+
       snapshot.forEach((doc) => {
         // Don't include the current user
         if (doc.id === user.uid) return;
-        
+
         usersList.push({
           uid: doc.id,
           ...doc.data() as Omit<User, 'uid'>
         });
       });
-      
+
       setUsers(usersList);
       setIsLoading(false);
     }, (error) => {
       console.error('Error listening to users:', error);
       setIsLoading(false);
     });
-    
+
     // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [user]);
-  
+
   const handleStartChat = async (otherUser: User) => {
-    if (!user || !db) return;
-    
+    if (!user) {
+      toast({
+        title: "Not authenticated",
+        description: "Please sign in to start a chat",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      // Get current user info
-      const currentUserDoc = await getDoc(doc(db, 'users', user.uid));
-      const currentUserData = currentUserDoc.data();
-      const currentUserName = currentUserData?.displayName || user.displayName || 'User';
-      
-      // Start or get existing chat
-      const chatId = await startChat(otherUser.uid);
-      
-      // Navigate to chat
-      router.push(`/chat/${chatId}`);
-    } catch (error) {
-      console.error('Error starting chat:', error);
+      setLoading(true);
+
+      // Use Firestore directly as a fallback if the chat service fails
+      let chatId;
+
+      try {
+        // First try with the chat service
+        chatId = await startChat(otherUser.uid);
+      } catch (chatServiceError) {
+        console.error("Chat service error:", chatServiceError);
+
+        // Fallback to creating the chat directly in Firestore
+        const chatsRef = collection(db, 'chats');
+        const q = query(
+          chatsRef,
+          where('participants', 'array-contains', user.uid)
+        );
+
+        const querySnapshot = await getDocs(q);
+        const existingChat = querySnapshot.docs.find(doc => {
+          const data = doc.data();
+          return data.participants.includes(otherUser.uid);
+        });
+
+        if (existingChat) {
+          chatId = existingChat.id;
+        } else {
+          // Create new chat
+          const newChatRef = await addDoc(chatsRef, {
+            participants: [user.uid, otherUser.uid],
+            createdAt: new Date().toISOString(),
+            lastMessage: null
+          });
+
+          chatId = newChatRef.id;
+        }
+      }
+
+      setLoading(false);
+
+      if (chatId) {
+        router.push(`/chat/${chatId}`);
+      } else {
+        throw new Error("Failed to create or retrieve chat ID");
+      }
+    } catch (error: any) {
+      setLoading(false);
+      console.error("Error starting chat:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start chat. Please try again.",
+        variant: "destructive",
+      });
     }
   };
-  
+
   const filteredUsers = users.filter(user => {
     if (!searchTerm) return true;
-    
+
     const searchLower = searchTerm.toLowerCase();
     const displayName = user.displayName?.toLowerCase() || '';
     const nativeLanguages = user.nativeLanguages?.join(' ').toLowerCase() || '';
     const learningLanguages = user.learningLanguages?.join(' ').toLowerCase() || '';
-    
+
     return (
       displayName.includes(searchLower) ||
       nativeLanguages.includes(searchLower) ||
@@ -180,6 +230,7 @@ export default function CommunityPage() {
                   <Button
                     className="w-full"
                     onClick={() => handleStartChat(otherUser)}
+                    loading={loading}
                   >
                     <MessageCircle className="w-4 h-4 mr-2" />
                     Start Chat

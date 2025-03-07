@@ -128,12 +128,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithPhone = async (phoneNumber: string, recaptchaContainer: string) => {
     try {
-      const verifier = new RecaptchaVerifier(firebaseAuth, recaptchaContainer, {
-        size: 'invisible',
-      });
+      // Ensure we're in browser environment
+      if (typeof window === 'undefined') {
+        throw new Error('Cannot use phone authentication in server-side context');
+      }
+      
+      // Clear any existing reCAPTCHA elements first
+      const existingRecaptcha = document.querySelector(`#${recaptchaContainer} div`);
+      if (existingRecaptcha) {
+        existingRecaptcha.remove();
+      }
+      
+      // Create a new RecaptchaVerifier with better error handling
+      let verifier;
+      try {
+        verifier = new RecaptchaVerifier(firebaseAuth, recaptchaContainer, {
+          size: 'invisible',
+          callback: () => {
+            console.log('reCAPTCHA verified');
+          },
+          'expired-callback': () => {
+            console.log('reCAPTCHA expired');
+            setError('reCAPTCHA verification expired. Please try again.');
+          }
+        });
+        
+        // Render the reCAPTCHA to make sure it's ready
+        await verifier.render();
+      } catch (recaptchaError: any) {
+        console.error('reCAPTCHA initialization error:', recaptchaError);
+        
+        // Better error message for deployment issues
+        if (recaptchaError.message.includes('_getRecaptchaConfig is not a function')) {
+          throw new Error('reCAPTCHA configuration is missing. Make sure your Firebase project has reCAPTCHA enabled and you are using a domain allowed in Firebase Console.');
+        }
+        
+        throw recaptchaError;
+      }
+      
+      // Now try to use the verifier
       const confirmationResult = await signInWithPhoneNumber(firebaseAuth, phoneNumber, verifier);
       return confirmationResult.verificationId;
     } catch (error: any) {
+      console.error('Phone sign-in error:', error);
       setError(error.message);
       throw error;
     }
