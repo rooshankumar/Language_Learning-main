@@ -1,9 +1,11 @@
 
 import { useLayoutEffect, useEffect } from 'react';
 
-// Use useLayoutEffect in browser environments, useEffect on the server
-const useIsomorphicLayoutEffect = typeof window !== 'undefined' 
-  ? useLayoutEffect 
-  : useEffect;
+/**
+ * A hook that provides useLayoutEffect on the client
+ * and useEffect during SSR to avoid React hydration warnings
+ */
+const useIsomorphicLayoutEffect = 
+  typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 export default useIsomorphicLayoutEffect;
