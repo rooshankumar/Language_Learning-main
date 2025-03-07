@@ -3,10 +3,10 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import clientPromise from "@/lib/mongodb";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import { connectToDatabase } from "@/lib/mongoose";
 import User from "@/models/User";
+import clientPromise from "@/lib/mongodb";
 
 const handler = NextAuth({
   adapter: MongoDBAdapter(clientPromise),
