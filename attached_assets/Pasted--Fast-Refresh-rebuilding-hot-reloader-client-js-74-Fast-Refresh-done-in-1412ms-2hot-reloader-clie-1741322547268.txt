@@ -1,0 +1,28 @@
+[Fast Refresh] rebuilding
+hot-reloader-client.js:74 [Fast Refresh] done in 1412ms
+2hot-reloader-client.js:242 [Fast Refresh] rebuilding
+hot-reloader-client.js:74 [Fast Refresh] done in 30ms
+hot-reloader-client.js:74 [Fast Refresh] done in 5465ms
+profile:1 Access to XMLHttpRequest at 'https://firebasestorage.googleapis.com/v0/b/language-learning-app-d2e87.appspot.com/o?name=profile-images%2F86WwGaBmrDYl21DeUmzh7fY0Yl72' from origin 'https://37130ad6-ff9b-47ab-a28e-7afb7b0ed54a-00-22b44204ok1k.sisko.replit.dev:3001' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: It does not have HTTP ok status.Understand this errorAI
+firebasestorage.googleapis.com/v0/b/language-learning-app-d2e87.appspot.com/o?name=profile-images%2F86WwGaBmrDYl21DeUmzh7fY0Yl72:1 
+            
+            
+           Failed to load resource: net::ERR_FAILEDUnderstand this errorAI
+profile:1 Access to XMLHttpRequest at 'https://firebasestorage.googleapis.com/v0/b/language-learning-app-d2e87.appspot.com/o?name=profile-images%2F86WwGaBmrDYl21DeUmzh7fY0Yl72' from origin 'https://37130ad6-ff9b-47ab-a28e-7afb7b0ed54a-00-22b44204ok1k.sisko.replit.dev:3001' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: It does not have HTTP ok status.Understand this errorAI
+firebasestorage.googleapis.com/v0/b/language-learning-app-d2e87.appspot.com/o?name=profile-images%2F86WwGaBmrDYl21DeUmzh7fY0Yl72:1 
+            
+            
+           Failed to load resource: net::ERR_FAILEDUnderstand this errorAI
+profile:1 Access to XMLHttpRequest at 'https://firebasestorage.googleapis.com/v0/b/language-learning-app-d2e87.appspot.com/o?name=profile-images%2F86WwGaBmrDYl21DeUmzh7fY0Yl72' from origin 'https://37130ad6-ff9b-47ab-a28e-7afb7b0ed54a-00-22b44204ok1k.sisko.replit.dev:3001' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: It does not have HTTP ok status.Understand this errorAI
+firebasestorage.googleapis.com/v0/b/language-learning-app-d2e87.appspot.com/o?name=profile-images%2F86WwGaBmrDYl21DeUmzh7fY0Yl72:1 
+            
+            
+           Failed to load resource: net::ERR_FAILEDUnderstand this errorAI
+profile:1 Access to XMLHttpRequest at 'https://firebasestorage.googleapis.com/v0/b/language-learning-app-d2e87.appspot.com/o?name=profile-images%2F86WwGaBmrDYl21DeUmzh7fY0Yl72' from origin 'https://37130ad6-ff9b-47ab-a28e-7afb7b0ed54a-00-22b44204ok1k.sisko.replit.dev:3001' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: It does not have HTTP ok status.Understand this errorAI
+index.esm2017.js:2208 
+            
+            
+           POST https://firebasestorage.googleapis.com/v0/b/language-learning-app-d2e87.appspot.com/o?name=profile-images%2F86WwGaBmrDYl21DeUmzh7fY0Yl72 net::ERR_FAILED
+send @ index.esm2017.js:2208
+doTheRequest @ index.esm2017.js:740
+eval @ index.esm2017.js:461Understand this errorAI
