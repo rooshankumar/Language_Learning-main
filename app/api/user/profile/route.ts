@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { connectToDatabase } from "@/lib/mongoose";
@@ -39,7 +38,7 @@ export async function GET(req: Request) {
     console.error("Profile fetch error:", error);
     return NextResponse.json(
       { message: error.message || "Failed to fetch profile" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -95,7 +94,7 @@ export async function PATCH(req: Request) {
     console.error("Profile update error:", error);
     return NextResponse.json(
       { message: error.message || "Failed to update profile" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
