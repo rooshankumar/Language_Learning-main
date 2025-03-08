@@ -1,23 +1,7 @@
-'use client';
+"use client";
 
 import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
-
-// Use dynamic import with no SSR to prevent Firebase Auth errors during build
-const ChatPage = dynamic(() => import('@/components/chat/chat-page'), {
-  ssr: false,
-  loading: () => null,
-});
-
-export default function Page() {
-  return (
-    <Suspense fallback={<div className="p-4">Loading chat...</div>}>
-      <ChatPage />
-    </Suspense>
-  );
-}
-"use client";
-
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -30,7 +14,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Plus, MessageSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-export default function ChatPage() {
+
+// Use dynamic import with no SSR to prevent Firebase Auth errors during build
+const ChatPage = dynamic(() => import('@/components/chat/chat-page'), {
+  ssr: false,
+  loading: () => null,
+});
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ChatPage />
+    </Suspense>
+  );
+}
+
+
+export default function ChatPage2() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
