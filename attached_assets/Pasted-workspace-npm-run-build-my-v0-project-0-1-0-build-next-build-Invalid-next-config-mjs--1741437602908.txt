@@ -1,0 +1,63 @@
+workspace$ npm run build
+
+> my-v0-project@0.1.0 build
+> next build
+
+ ⚠ Invalid next.config.mjs options detected: 
+ ⚠     Unrecognized key(s) in object: 'appDir' at "experimental"
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+   ▲ Next.js 15.2.1
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+Failed to compile.
+
+./lib/chat-service.ts
+Error:   × Server Actions must be async functions.
+  │ 
+     ╭─[/home/runner/workspace/lib/chat-service.ts:168:1]
+ 165 │     
+ 166 │     // Since we're using MongoDB and not Firebase, we don't need real-time subscriptions
+ 167 │     // This is a placeholder that returns a cleanup function
+ 168 │ ╭─▶ export function subscribeToChatMessages(chatId: string, callback: Function) {
+ 169 │ │     // In a real implementation, you might use WebSockets or Server-Sent Events here
+ 170 │ │     console.log("Subscription to chat messages is not implemented with MongoDB");
+ 171 │ │   
+ 172 │ │     // Return a cleanup function
+ 173 │ │     return () => {
+ 174 │ │       console.log("Cleaning up chat subscription");
+ 175 │ │     };
+ 176 │ ╰─▶ }
+     ╰────
+
+Import trace for requested module:
+./lib/chat-service.ts
+./components/chat/chat-detail-page.tsx
+./app/chat/[chatId]/page.tsx
+
+./lib/chat-service.ts
+Error:   × Server Actions must be async functions.
+  │ 
+     ╭─[/home/runner/workspace/lib/chat-service.ts:168:1]
+ 165 │     
+ 166 │     // Since we're using MongoDB and not Firebase, we don't need real-time subscriptions
+ 167 │     // This is a placeholder that returns a cleanup function
+ 168 │ ╭─▶ export function subscribeToChatMessages(chatId: string, callback: Function) {
+ 169 │ │     // In a real implementation, you might use WebSockets or Server-Sent Events here
+ 170 │ │     console.log("Subscription to chat messages is not implemented with MongoDB");
+ 171 │ │   
+ 172 │ │     // Return a cleanup function
+ 173 │ │     return () => {
+ 174 │ │       console.log("Cleaning up chat subscription");
+ 175 │ │     };
+ 176 │ ╰─▶ }
+     ╰────
+
+Import trace for requested module:
+./lib/chat-service.ts
+./app/api/chats/route.ts
+
+
+> Build failed because of webpack errors
+ Environment updated. Reloading shell...
+~/workspace$ 
