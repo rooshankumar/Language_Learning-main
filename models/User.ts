@@ -1,21 +1,8 @@
+
 import mongoose, { Schema, models, model } from 'mongoose';
 
-// Middleware to ensure image fields stay in sync
-const syncImageFields = function(this: any, next: any) {
-  if (this.isModified('profilePic')) {
-    this.image = this.profilePic;
-    this.photoURL = this.profilePic;
-  } else if (this.isModified('photoURL')) {
-    this.image = this.photoURL;
-    this.profilePic = this.photoURL;
-  } else if (this.isModified('image')) {
-    this.photoURL = this.image;
-    this.profilePic = this.image;
-  }
-  next();
-};
-
-const UserSchema = new Schema(
+// Middleware to ensure image fields stay in sync for document (save)
+const userSchema = new Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
@@ -39,8 +26,37 @@ const UserSchema = new Schema(
   { timestamps: true }
 );
 
-// Add pre-save hook to sync image fields
-UserSchema.pre('save', syncImageFields);
-UserSchema.pre('findOneAndUpdate', syncImageFields);
+// Pre-save hook for document
+userSchema.pre('save', function(next) {
+  if (this.isModified('profilePic')) {
+    this.image = this.profilePic;
+    this.photoURL = this.profilePic;
+  } else if (this.isModified('photoURL')) {
+    this.image = this.photoURL;
+    this.profilePic = this.photoURL;
+  } else if (this.isModified('image')) {
+    this.photoURL = this.image;
+    this.profilePic = this.image;
+  }
+  next();
+});
 
-export default models.User || model('User', UserSchema);
+// For findOneAndUpdate operations
+userSchema.pre('findOneAndUpdate', function(next) {
+  const update = this.getUpdate();
+  if (!update) return next();
+  
+  if (update.profilePic) {
+    update.image = update.profilePic;
+    update.photoURL = update.profilePic;
+  } else if (update.photoURL) {
+    update.image = update.photoURL;
+    update.profilePic = update.photoURL;
+  } else if (update.image) {
+    update.photoURL = update.image;
+    update.profilePic = update.image;
+  }
+  next();
+});
+
+export default models.User || model('User', userSchema);
