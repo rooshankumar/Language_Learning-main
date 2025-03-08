@@ -1,207 +1,91 @@
+"use client";
 
-'use client';
+import { useState, useEffect } from "react";
+import { AppShell } from "@/components/app-shell";
+import { Card, CardContent } from "@/components/ui/card";
+import { useAuth } from "@/contexts/auth-context";
+import { useRouter } from "next/navigation";
 
-import { useState, useEffect, useRef } from "react";
-import { useSession } from "next-auth/react";
-import { Socket, io } from "socket.io-client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Paperclip, Send } from "lucide-react";
-
-type Message = {
-  type: "text" | "file";
-  text?: string;
-  url?: string;
-  sender?: string;
-  timestamp?: Date;
-};
-
-// Initialize socket outside the component
-let socket: Socket | undefined;
-
-export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data: session } = useSession();
+export function Chat() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const [chats, setChats] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Initialize socket connection only once
-    if (!socket) {
-      socket = io(window.location.origin);
-    }
-
-    const fetchMessages = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch("/api/messages");
-        if (response.ok) {
-          const data = await response.json();
-          setMessages(data);
-        }
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMessages();
-
-    // Socket event handlers
-    socket.on("chatMessage", (message: Message) => {
-      setMessages((prev) => [...prev, message]);
-    });
-
-    socket.on("receiveFile", (fileUrl: string) => {
-      setMessages((prev) => [...prev, {
-        type: "file",
-        url: fileUrl,
-        timestamp: new Date()
-      }]);
-    });
-
-    return () => {
-      socket?.off("chatMessage");
-      socket?.off("receiveFile");
-    };
-  }, []);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const handleSendMessage = () => {
-    if (!input.trim() && !file) return;
-
-    if (file) {
-      handleFileUpload();
+    // Check authentication
+    if (!loading && !user) {
+      router.push("/sign-in");
       return;
     }
 
-    const message: Message = {
-      type: "text",
-      text: input,
-      sender: session?.user?.name || 'Anonymous',
-      timestamp: new Date()
-    };
+    // Fetch chats only when we have a user
+    if (user) {
+      fetchChats();
+    }
+  }, [user, loading, router]);
 
-    socket?.emit("chatMessage", message);
-    setInput("");
-  };
-
-  const handleFileUpload = () => {
-    if (!file || !socket) return;
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    })
-      .then((response) => response.json())
+  const fetchChats = () => {
+    setIsLoading(true);
+    // Implement your data fetching logic here
+    // For example:
+    fetch("/api/chats")
+      .then((res) => res.json())
       .then((data) => {
-        socket.emit("sendFile", {
-          url: data.url,
-          sender: session?.user?.name || 'Anonymous',
-        });
-        setFile(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
+        setChats(data);
+        setIsLoading(false);
       })
       .catch((error) => {
-        console.error("Error uploading file:", error);
+        console.error("Error fetching chats:", error);
+        setIsLoading(false);
       });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center h-full">
+          <div className="animate-pulse">Loading...</div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Chat</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[400px] overflow-y-auto mb-4 p-4 border rounded-md">
-          {loading ? <p>Loading messages...</p> :
-            messages.map((msg, index) => (
-              <div
-                key={index}
-                className={`mb-2 ${msg.sender === session?.user?.name ? 'text-right' : 'text-left'}`}
-              >
-                <div
-                  className={`inline-block p-3 rounded-lg ${
-                    msg.sender === session?.user?.name
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700'
-                    }`}
-                >
-                  {msg.type === "text" ? (
-                    <p>{msg.text}</p>
-                  ) : (
-                    <a
-                      href={msg.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center text-blue-500 hover:underline"
-                    >
-                      <Paperclip className="mr-1" size={16} />
-                      Attachment
-                    </a>
-                  )}
-                  <div className="text-xs mt-1 opacity-70">
-                    {msg.timestamp && new Date(msg.timestamp).toLocaleTimeString()}
-                  </div>
-                </div>
-              </div>
-            ))}
-          <div ref={messagesEndRef} />
-        </div>
+    <AppShell>
+      <div className="container mx-auto py-6">
+        <h1 className="text-2xl font-bold mb-6">Your Conversations</h1>
 
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Paperclip className="h-4 w-4" />
-            <span className="sr-only">Attach file</span>
-          </Button>
-          <Input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-          />
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your message here..."
-            className="flex-1"
-          />
-          <Button type="button" onClick={handleSendMessage}>
-            <Send className="h-4 w-4 mr-2" />
-            Send
-          </Button>
-        </div>
-        {file && (
-          <div className="mt-2 text-sm text-muted-foreground">
-            File selected: {file.name}
+        {isLoading ? (
+          <div className="animate-pulse">Loading chats...</div>
+        ) : chats.length > 0 ? (
+          <div className="grid gap-4">
+            {chats.map((chat) => (
+              <Card key={chat.id} className="cursor-pointer hover:bg-muted/50">
+                <CardContent className="p-4">
+                  <div className="font-medium">{chat.name || "Chat"}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {chat.lastMessage?.text || "No messages yet"}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-10">
+            <p className="text-muted-foreground">No conversations yet</p>
+            <button 
+              className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md"
+              onClick={() => {
+                // Implement chat creation logic
+                router.push("/community");
+              }}
+            >
+              Find someone to chat with
+            </button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </AppShell>
   );
 }
