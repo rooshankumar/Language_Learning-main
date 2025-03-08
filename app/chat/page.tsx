@@ -187,3 +187,13 @@ export default function Page() {
     </AppShell>
   );
 }
+import Chat from "@/components/chat/Chat";
+
+export default function ChatPage() {
+  return (
+    <div className="container mx-auto py-8">
+      <h1 className="text-3xl font-bold mb-6">Live Chat</h1>
+      <Chat />
+    </div>
+  );
+}

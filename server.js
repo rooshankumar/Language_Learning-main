@@ -1,84 +1,66 @@
-const express = require('express');
-const next = require('next');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const mongoose = require('mongoose');
-require('dotenv').config();
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const cors = require("cors");
+const multer = require("multer");
+const path = require("path");
+const next = require("next");
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = '0.0.0.0';
-const port = process.env.PORT || 3000;
+const nextApp = next({ dev });
+const handle = nextApp.getRequestHandler();
 
-// Initialize Next.js
-const app = next({ dev, hostname, port });
-const handle = app.getRequestHandler();
-
-app.prepare().then(() => {
-  const server = express();
-  const httpServer = http.createServer(server);
-
-  // Set up Socket.IO with CORS
-  const io = new Server(httpServer, {
-    cors: {
-      origin: '*',
-      methods: ['GET', 'POST'],
-      credentials: true
-    }
-  });
-
-  // Apply middleware
-  server.use(cors());
-  server.use(express.json({ limit: '2mb' }));
-
-  // Connect to MongoDB before starting the server
-  async function connectToMongoDB() {
-    try {
-      // Connect to MongoDB if MONGODB_URI is defined
-      if (process.env.MONGODB_URI) {
-        await mongoose.connect(process.env.MONGODB_URI);
-        console.log('✅ MongoDB connected successfully');
-      } else {
-        console.warn('⚠️ MONGODB_URI not defined, skipping MongoDB connection');
-      }
-    } catch (error) {
-      console.error('❌ MongoDB connection error:', error);
-      process.exit(1); // Exit if MongoDB connection fails
-    }
+// Configure file upload storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "public/uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
   }
-  connectToMongoDB();
+});
+const upload = multer({ storage });
 
+nextApp.prepare().then(() => {
+  const app = express();
+  const server = http.createServer(app);
+  const io = new Server(server, {
+    cors: { origin: "*" }
+  });
 
-  // Socket.IO connection handler
-  io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
+  // Middleware
+  app.use(cors());
+  app.use(express.json());
 
-    socket.on('join-chat', (chatId) => {
-      socket.join(chatId);
-      console.log(`User ${socket.id} joined chat: ${chatId}`);
+  // API to handle file uploads
+  app.post("/api/upload", upload.single("file"), (req, res) => {
+    res.json({ fileUrl: `/uploads/${req.file.filename}` });
+  });
+
+  // Socket.io handling real-time communication
+  io.on("connection", (socket) => {
+    console.log(`User Connected: ${socket.id}`);
+
+    socket.on("chatMessage", (message) => {
+      io.emit("chatMessage", message); // Broadcast message
     });
 
-    socket.on('leave-chat', (chatId) => {
-      socket.leave(chatId);
-      console.log(`User ${socket.id} left chat: ${chatId}`);
+    socket.on("sendFile", (fileUrl) => {
+      io.emit("receiveFile", fileUrl); // Broadcast file URL
     });
 
-    socket.on('send-message', (data) => {
-      io.to(data.chatId).emit('receive-message', data);
-    });
-
-    socket.on('disconnect', () => {
-      console.log('User disconnected:', socket.id);
+    socket.on("disconnect", () => {
+      console.log(`User Disconnected: ${socket.id}`);
     });
   });
 
-  // Let Next.js handle all other routes
-  server.all('*', (req, res) => {
+  // Handle all other routes with Next.js
+  app.all("*", (req, res) => {
     return handle(req, res);
   });
 
-  // Start server
-  httpServer.listen(port, hostname, () => {
-    console.log(`> Ready on http://${hostname}:${port}`);
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
   });
 });
