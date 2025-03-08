@@ -359,3 +359,349 @@ export default function EditProfilePage() {
     </div>
   );
 }
+"use client"
+
+import { useState, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/use-toast"
+import { Loader2, Camera } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { useProfile } from "@/hooks/use-profile"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { MultiSelect } from "@/components/ui/multi-select"
+
+const languageOptions = [
+  "English", "Spanish", "French", "German", "Italian", "Portuguese",
+  "Russian", "Japanese", "Korean", "Chinese", "Arabic", "Hindi"
+];
+
+const proficiencyLevels = [
+  { value: "beginner", label: "Beginner" },
+  { value: "intermediate", label: "Intermediate" },
+  { value: "advanced", label: "Advanced" },
+  { value: "fluent", label: "Fluent" },
+  { value: "native", label: "Native" }
+];
+
+const interestOptions = [
+  "Music", "Movies", "Books", "Travel", "Food", "Sports", "Technology",
+  "Art", "Photography", "Gaming", "Fitness", "Fashion", "Nature",
+  "Politics", "Science", "History", "Business", "Education",
+];
+
+export default function EditProfile() {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const { toast } = useToast();
+  const { updateProfile, getProfile, loading: profileLoading } = useProfile();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [activeTab, setActiveTab] = useState("basic");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
+  
+  // Form state
+  const [displayName, setDisplayName] = useState("");
+  const [bio, setBio] = useState("");
+  const [age, setAge] = useState("");
+  const [nativeLanguages, setNativeLanguages] = useState<string[]>([]);
+  const [learningLanguages, setLearningLanguages] = useState<string[]>([]);
+  const [proficiency, setProficiency] = useState("beginner");
+  const [interests, setInterests] = useState<string[]>([]);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState("/placeholder-user.jpg");
+
+  // Fetch user data
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const data = await getProfile();
+        setUserData(data);
+        
+        // Set form state from user data
+        setDisplayName(data.name || data.displayName || "");
+        setBio(data.bio || "");
+        setAge(data.age ? data.age.toString() : "");
+        setNativeLanguages(data.nativeLanguages || []);
+        setLearningLanguages(data.learningLanguages || []);
+        setProficiency(data.proficiency || "beginner");
+        setInterests(data.interests || []);
+        setImagePreview(data.image || data.profilePic || "/placeholder-user.jpg");
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load your profile data.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (session?.user) {
+      fetchUserData();
+    }
+  }, [session, getProfile, toast]);
+
+  // Handle image change
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Handle save
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Create profile update object
+      const profileData: any = {
+        displayName,
+        name: displayName, // Update name field for consistency
+        bio,
+        nativeLanguages,
+        learningLanguages,
+        proficiency,
+        interests,
+      };
+      
+      // Add age if provided
+      if (age) {
+        profileData.age = parseInt(age);
+      }
+      
+      // Add image file if provided
+      if (imageFile) {
+        profileData.imageFile = imageFile;
+      }
+      
+      // Update profile
+      await updateProfile(profileData);
+      
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
+      });
+      
+      // Redirect back to profile page
+      router.push("/profile");
+      router.refresh();
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update your profile. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading || profileLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="container max-w-4xl mx-auto py-8 px-4">
+      <h1 className="text-2xl font-bold mb-6">Edit Profile</h1>
+      
+      <Tabs defaultValue="basic" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsTrigger value="basic">Basic Info</TabsTrigger>
+          <TabsTrigger value="languages">Languages</TabsTrigger>
+          <TabsTrigger value="interests">Interests</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="basic">
+          <Card>
+            <CardHeader>
+              <CardTitle>Basic Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Profile Picture */}
+              <div className="flex flex-col items-center mb-6">
+                <div 
+                  className="relative w-24 h-24 rounded-full overflow-hidden cursor-pointer group"
+                  onClick={handleAvatarClick}
+                >
+                  <Image
+                    src={imagePreview}
+                    alt="Profile"
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="text-white" />
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageChange}
+                  className="hidden"
+                  accept="image/*"
+                />
+                <button 
+                  className="text-sm text-primary mt-2"
+                  onClick={handleAvatarClick}
+                >
+                  Change Photo
+                </button>
+              </div>
+              
+              {/* Name */}
+              <div className="space-y-2">
+                <Label htmlFor="displayName">Display Name</Label>
+                <Input
+                  id="displayName"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Your display name"
+                />
+              </div>
+              
+              {/* Bio */}
+              <div className="space-y-2">
+                <Label htmlFor="bio">Bio</Label>
+                <Textarea
+                  id="bio"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Tell us about yourself"
+                  rows={4}
+                />
+              </div>
+              
+              {/* Age */}
+              <div className="space-y-2">
+                <Label htmlFor="age">Age (optional)</Label>
+                <Input
+                  id="age"
+                  type="number"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  placeholder="Your age"
+                />
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button variant="outline" onClick={() => router.back()}>Cancel</Button>
+              <Button onClick={() => setActiveTab("languages")}>Next</Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="languages">
+          <Card>
+            <CardHeader>
+              <CardTitle>Language Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Native Languages */}
+              <div className="space-y-2">
+                <Label htmlFor="nativeLanguages">Native Languages</Label>
+                <MultiSelect
+                  options={languageOptions.map(lang => ({ value: lang, label: lang }))}
+                  selected={nativeLanguages}
+                  onChange={setNativeLanguages}
+                  placeholder="Select your native languages"
+                />
+              </div>
+              
+              {/* Learning Languages */}
+              <div className="space-y-2">
+                <Label htmlFor="learningLanguages">Languages You're Learning</Label>
+                <MultiSelect
+                  options={languageOptions.map(lang => ({ value: lang, label: lang }))}
+                  selected={learningLanguages}
+                  onChange={setLearningLanguages}
+                  placeholder="Select languages you're learning"
+                />
+              </div>
+              
+              {/* Proficiency */}
+              <div className="space-y-2">
+                <Label htmlFor="proficiency">Proficiency Level</Label>
+                <Select value={proficiency} onValueChange={setProficiency}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your proficiency level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {proficiencyLevels.map((level) => (
+                      <SelectItem key={level.value} value={level.value}>
+                        {level.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button variant="outline" onClick={() => setActiveTab("basic")}>Previous</Button>
+              <Button onClick={() => setActiveTab("interests")}>Next</Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="interests">
+          <Card>
+            <CardHeader>
+              <CardTitle>Interests</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="interests">Select Your Interests</Label>
+                <MultiSelect
+                  options={interestOptions.map(interest => ({ value: interest, label: interest }))}
+                  selected={interests}
+                  onChange={setInterests}
+                  placeholder="Select your interests"
+                />
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button variant="outline" onClick={() => setActiveTab("languages")}>Previous</Button>
+              <Button 
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Profile"
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

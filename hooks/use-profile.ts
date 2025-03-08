@@ -32,7 +32,7 @@ export function useProfile() {
         }
         
         const { imageUrl } = await uploadRes.json();
-        profileData.image = imageUrl;
+        profileData.profilePic = imageUrl;
       }
       
       // Remove the file from the data before sending to API
@@ -71,11 +71,6 @@ export function useProfile() {
         },
       });
       
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully.",
-      });
-      
       // Force router refresh to update UI components
       router.refresh();
       
@@ -83,11 +78,6 @@ export function useProfile() {
     } catch (error: any) {
       const errorMessage = error.message || 'An error occurred while updating the profile';
       setError(errorMessage);
-      toast({
-        title: "Update failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
       throw error;
     } finally {
       setLoading(false);
