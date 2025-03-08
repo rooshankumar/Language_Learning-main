@@ -1,29 +1,30 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from "react";
-import { io, Socket } from "socket.io-client";
-import axios from "axios";
 import { useSession } from "next-auth/react";
+import { Socket, io } from "socket.io-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Paperclip, Send, Smile } from "lucide-react";
+import { Paperclip, Send } from "lucide-react";
 
 type Message = {
-  type: 'text' | 'file';
+  type: "text" | "file";
   text?: string;
   url?: string;
   sender?: string;
   timestamp?: Date;
 };
 
-let socket: Socket | undefined; // Initialize socket outside the component
+// Initialize socket outside the component
+let socket: Socket | undefined;
 
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(true); // Add loading state
+  const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: session } = useSession();
@@ -37,7 +38,7 @@ export default function Chat() {
     const fetchMessages = async () => {
       try {
         setLoading(true);
-        const response = await fetch("/api/messages"); // fetch initial messages
+        const response = await fetch("/api/messages");
         if (response.ok) {
           const data = await response.json();
           setMessages(data);
@@ -50,7 +51,7 @@ export default function Chat() {
     };
     fetchMessages();
 
-
+    // Socket event handlers
     socket.on("chatMessage", (message: Message) => {
       setMessages((prev) => [...prev, message]);
     });
@@ -66,7 +67,6 @@ export default function Chat() {
     return () => {
       socket?.off("chatMessage");
       socket?.off("receiveFile");
-      socket?.disconnect(); //added disconnect
     };
   }, []);
 
@@ -74,8 +74,13 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = () => {
-    if (!socket || !input.trim()) return;
+  const handleSendMessage = () => {
+    if (!input.trim() && !file) return;
+
+    if (file) {
+      handleFileUpload();
+      return;
+    }
 
     const message: Message = {
       type: "text",
@@ -84,55 +89,51 @@ export default function Chat() {
       timestamp: new Date()
     };
 
-    socket.emit("chatMessage", message);
+    socket?.emit("chatMessage", message);
     setInput("");
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      sendMessage();
-    }
-  };
-
-  const openFileSelector = () => {
-    fileInputRef.current?.click();
-  };
-
-  const sendFile = async () => {
-    if (!socket || !file) return;
+  const handleFileUpload = () => {
+    if (!file || !socket) return;
 
     const formData = new FormData();
     formData.append("file", file);
 
-    try {
-      const response = await axios.post("/api/upload", formData);
-      socket.emit("sendFile", response.data.fileUrl);
-      setFile(null);
-    } catch (error) {
-      console.error("Error uploading file:", error);
-    }
+    fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        socket.emit("sendFile", {
+          url: data.url,
+          sender: session?.user?.name || 'Anonymous',
+        });
+        setFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      })
+      .catch((error) => {
+        console.error("Error uploading file:", error);
+      });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
-
-  useEffect(() => {
-    if (file) {
-      sendFile();
-    }
-  }, [file]);
 
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Chat Room</CardTitle>
+        <CardTitle>Chat</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-[400px] overflow-y-auto mb-4 p-4 border rounded-md">
-          {loading ? <p>Loading messages...</p> : // Show loading indicator
+          {loading ? <p>Loading messages...</p> :
             messages.map((msg, index) => (
               <div
                 key={index}
@@ -167,27 +168,39 @@ export default function Chat() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Paperclip className="h-4 w-4" />
+            <span className="sr-only">Attach file</span>
+          </Button>
+          <Input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+          />
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type a message..."
-            className="flex-grow"
+            onKeyDown={handleKeyDown}
+            placeholder="Type your message here..."
+            className="flex-1"
           />
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            style={{ display: 'none' }}
-          />
-          <Button variant="outline" size="icon" onClick={openFileSelector}>
-            <Paperclip size={18} />
-          </Button>
-          <Button onClick={sendMessage}>
-            <Send size={18} />
+          <Button type="button" onClick={handleSendMessage}>
+            <Send className="h-4 w-4 mr-2" />
+            Send
           </Button>
         </div>
+        {file && (
+          <div className="mt-2 text-sm text-muted-foreground">
+            File selected: {file.name}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
