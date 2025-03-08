@@ -8,9 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Calendar, User2, Languages, Book, MusicIcon, Globe, Loader2 } from "lucide-react";
+import { Edit, Calendar, User2, Languages, Book, MusicIcon, Globe, Loader2, UserCircle2 } from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 
 export function ProfileDashboard() {
   const { data: session } = useSession();
@@ -69,69 +69,74 @@ export function ProfileDashboard() {
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>My Profile</CardTitle>
-          <Button onClick={handleEditProfile} variant="outline" size="sm" className="flex items-center gap-1">
-            <Edit className="h-4 w-4" /> Edit
+    <Card className="w-full max-w-xl mx-auto">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-2xl flex items-center justify-between">
+          <span>Your Profile</span>
+          <Button size="sm" variant="ghost" onClick={handleEditProfile}>
+            <Edit className="h-4 w-4 mr-2" /> Edit
           </Button>
-        </div>
+        </CardTitle>
         <CardDescription>
-          Your personal profile information
+          View and manage your profile information
         </CardDescription>
       </CardHeader>
+      
       <CardContent className="space-y-6">
-        <div className="flex flex-col sm:flex-row gap-6 items-center">
-          <Avatar className="h-24 w-24 border-2 border-primary/20">
-            <AvatarImage 
-              src={profileData.profilePic || profileData.image || '/placeholder-user.jpg'} 
-              alt={profileData.displayName || profileData.name || "User"} 
-            />
-            <AvatarFallback>{(profileData.displayName || profileData.name || "U").charAt(0)}</AvatarFallback>
+        <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
+          <Avatar className="h-24 w-24 border-2 border-primary/50">
+            <AvatarImage src={profileData.profilePic || profileData.image || "/placeholder-user.jpg"} alt={profileData.displayName || profileData.name} />
+            <AvatarFallback>
+              <UserCircle2 className="h-12 w-12" />
+            </AvatarFallback>
           </Avatar>
           
-          <div className="space-y-2 text-center sm:text-left">
-            <h3 className="text-xl font-semibold">{profileData.displayName || profileData.name}</h3>
-            {profileData.age && (
-              <div className="flex items-center justify-center sm:justify-start gap-1 text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>{profileData.age} years old</span>
+          <div className="flex-1 space-y-3 text-center sm:text-left">
+            <div>
+              <h3 className="text-xl font-semibold">
+                {profileData.displayName || profileData.name || "User"}
+              </h3>
+              <p className="text-muted-foreground">{profileData.email}</p>
+            </div>
+            
+            {profileData.bio && (
+              <div>
+                <p className="text-sm">{profileData.bio}</p>
               </div>
             )}
           </div>
         </div>
         
-        {profileData.bio && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {profileData.age && (
+            <div className="space-y-2">
+              <h4 className="font-medium flex items-center gap-2">
+                <Calendar className="h-4 w-4" /> Age
+              </h4>
+              <p>{profileData.age} years</p>
+            </div>
+          )}
+          
           <div className="space-y-2">
             <h4 className="font-medium flex items-center gap-2">
-              <User2 className="h-4 w-4" /> About
-            </h4>
-            <p className="text-muted-foreground">{profileData.bio}</p>
-          </div>
-        )}
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <h4 className="font-medium flex items-center gap-2">
-              <Languages className="h-4 w-4" /> Native Languages
+              <User2 className="h-4 w-4" /> Native Language
             </h4>
             <div className="flex flex-wrap gap-1">
               {profileData.nativeLanguages && profileData.nativeLanguages.length > 0 ? (
                 profileData.nativeLanguages.map((lang: string) => (
-                  <Badge key={lang} variant="secondary">{lang}</Badge>
+                  <Badge key={lang} variant="outline">{lang}</Badge>
                 ))
               ) : profileData.nativeLanguage ? (
-                <Badge variant="secondary">{profileData.nativeLanguage}</Badge>
+                <Badge variant="outline">{profileData.nativeLanguage}</Badge>
               ) : (
-                <span className="text-muted-foreground text-sm">No native languages specified</span>
+                <span className="text-muted-foreground text-sm">Not specified</span>
               )}
             </div>
           </div>
           
           <div className="space-y-2">
             <h4 className="font-medium flex items-center gap-2">
-              <Book className="h-4 w-4" /> Learning Languages
+              <Languages className="h-4 w-4" /> Learning
             </h4>
             <div className="flex flex-wrap gap-1">
               {profileData.learningLanguages && profileData.learningLanguages.length > 0 ? (

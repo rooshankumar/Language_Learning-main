@@ -1,23 +1,32 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MultiSelect } from "@/components/ui/multi-select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
 import { useProfile } from "@/hooks/use-profile";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, ArrowLeft, ArrowRight, Upload, UserCircle2 } from "lucide-react";
+import { MultiSelect } from "@/components/ui/multi-select";
+import { ArrowLeft, ArrowRight, Upload, UserCircle2, Loader2 } from "lucide-react";
 
 const languageOptions = [
-  "English", "Spanish", "French", "German", "Italian", "Portuguese",
-  "Russian", "Japanese", "Korean", "Chinese", "Arabic", "Hindi"
+  "English", "Spanish", "French", "German", "Italian", "Portuguese", 
+  "Russian", "Japanese", "Chinese", "Korean", "Arabic", "Hindi"
+];
+
+const proficiencyOptions = [
+  { value: "beginner", label: "Beginner" },
+  { value: "intermediate", label: "Intermediate" },
+  { value: "advanced", label: "Advanced" },
+  { value: "fluent", label: "Fluent" },
+  { value: "native", label: "Native" }
 ];
 
 const interestOptions = [
@@ -56,21 +65,21 @@ export default function EditProfile() {
         setLoading(true);
         const profile = await getProfile();
         setUserData(profile);
-
-        // Initialize form state with user data
+        
+        // Initialize form with user data
         setDisplayName(profile.displayName || profile.name || "");
         setBio(profile.bio || "");
-        setAge(profile.age ? profile.age.toString() : "");
-        setNativeLanguages(profile.nativeLanguages || []);
-        setLearningLanguages(profile.learningLanguages || []);
+        setAge(profile.age?.toString() || "");
+        setNativeLanguages(profile.nativeLanguages || (profile.nativeLanguage ? [profile.nativeLanguage] : []));
+        setLearningLanguages(profile.learningLanguages || (profile.learningLanguage ? [profile.learningLanguage] : []));
         setProficiency(profile.proficiency || "beginner");
         setInterests(profile.interests || []);
         setImagePreview(profile.profilePic || profile.image || "/placeholder-user.jpg");
       } catch (error) {
         console.error("Error fetching user data:", error);
         toast({
-          title: "Error",
-          description: "Failed to load profile data. Please try again later.",
+          title: "Failed to load profile",
+          description: "There was an error loading your profile data.",
           variant: "destructive",
         });
       } finally {
@@ -83,14 +92,15 @@ export default function EditProfile() {
     }
   }, [session, getProfile, toast]);
 
-  // Handle image change
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setImagePreview(e.target.result as string);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -100,81 +110,67 @@ export default function EditProfile() {
     fileInputRef.current?.click();
   };
 
-  // Handle form submission
+  const handleNextStep = async () => {
+    if (step === 3) {
+      await handleSaveProfile();
+    } else {
+      setStep(step + 1);
+    }
+  };
+
+  const handlePreviousStep = () => {
+    setStep(step - 1);
+  };
+
   const handleSaveProfile = async () => {
-    setSaving(true);
     try {
-      const updatedProfile = {
+      setSaving(true);
+      
+      // Create profile update data
+      const profileData: any = {
         displayName,
         bio,
-        age: age ? parseInt(age) : undefined,
         nativeLanguages,
         learningLanguages,
         proficiency,
         interests,
-        imageFile,
       };
-
-      await updateProfile(updatedProfile);
-
+      
+      // Only add age if it's a valid number
+      if (age && !isNaN(Number(age))) {
+        profileData.age = Number(age);
+      }
+      
+      // Add image file if selected
+      if (imageFile) {
+        profileData.imageFile = imageFile;
+      }
+      
+      // Update profile
+      await updateProfile(profileData);
+      
       toast({
         title: "Profile updated",
-        description: "Your profile has been updated successfully.",
+        description: "Your profile has been successfully updated."
       });
-
-      setTimeout(() => {
-        router.push("/");
-        router.refresh();
-      }, 1000);
-    } catch (error) {
-      console.error("Error updating profile:", error);
+      
+      // Redirect to profile page
+      router.push("/profile");
+    } catch (error: any) {
+      console.error("Error saving profile:", error);
       toast({
-        title: "Error",
-        description: "Failed to update profile. Please try again later.",
-        variant: "destructive",
+        title: "Update failed",
+        description: error.message || "There was a problem updating your profile",
+        variant: "destructive"
       });
     } finally {
       setSaving(false);
     }
   };
 
-  // Handle next step
-  const handleNextStep = () => {
-    if (step === 1 && (nativeLanguages.length === 0 || learningLanguages.length === 0)) {
-      toast({
-        title: "Please select languages",
-        description: "You need to select at least one native language and one language you're learning.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (step === 2 && interests.length === 0) {
-      toast({
-        title: "Please select interests",
-        description: "You need to select at least one interest.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (step < 3) {
-      setStep(step + 1);
-    } else {
-      handleSaveProfile();
-    }
-  };
-
-  // Handle previous step
-  const handlePreviousStep = () => {
-    if (step > 1) {
-      setStep(step - 1);
-    }
-  };
-
-  if (loading || profileLoading) {
+  if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="container mx-auto flex justify-center items-center min-h-[60vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -190,7 +186,7 @@ export default function EditProfile() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Step 1: Languages */}
+          {/* Step 1: Basic Info */}
           {step === 1 && (
             <div className="space-y-6">
               <div className="text-center mb-6">
@@ -223,86 +219,17 @@ export default function EditProfile() {
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="Your name"
+                    required
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label>Native Languages</Label>
-                  <MultiSelect
-                    options={languageOptions.map(lang => ({ label: lang, value: lang }))}
-                    selected={nativeLanguages}
-                    onChange={setNativeLanguages}
-                    placeholder="Select native languages"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Learning Languages</Label>
-                  <MultiSelect
-                    options={languageOptions.map(lang => ({ label: lang, value: lang }))}
-                    selected={learningLanguages}
-                    onChange={setLearningLanguages}
-                    placeholder="Select languages you're learning"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Language Proficiency</Label>
-                  <RadioGroup value={proficiency} onValueChange={setProficiency} className="flex space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="beginner" id="beginner" />
-                      <Label htmlFor="beginner">Beginner</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="intermediate" id="intermediate" />
-                      <Label htmlFor="intermediate">Intermediate</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="advanced" id="advanced" />
-                      <Label htmlFor="advanced">Advanced</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Interests */}
-          {step === 2 && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-medium">Your Interests</h3>
-              <p className="text-muted-foreground mb-4">
-                Select interests to help connect with like-minded language partners
-              </p>
-
-              <div className="space-y-4">
-                <Label>Interests</Label>
-                <MultiSelect
-                  options={interestOptions.map(interest => ({ label: interest, value: interest }))}
-                  selected={interests}
-                  onChange={setInterests}
-                  placeholder="Select your interests"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Personal Info */}
-          {step === 3 && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-medium">About You</h3>
-              <p className="text-muted-foreground mb-4">
-                Complete your profile with a bio and additional information
-              </p>
-
-              <div className="space-y-4">
+                
                 <div className="space-y-2">
                   <Label htmlFor="bio">Bio</Label>
                   <Textarea
                     id="bio"
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    placeholder="Tell others about yourself..."
+                    placeholder="Tell us about yourself"
                     rows={4}
                   />
                 </div>
@@ -318,6 +245,65 @@ export default function EditProfile() {
                     min="13"
                     max="120"
                   />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Languages */}
+          {step === 2 && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Native Language(s)</Label>
+                  <MultiSelect
+                    options={languageOptions.map(lang => ({ label: lang, value: lang }))}
+                    selected={nativeLanguages}
+                    onChange={setNativeLanguages}
+                    placeholder="Select native languages"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Learning Language(s)</Label>
+                  <MultiSelect
+                    options={languageOptions.map(lang => ({ label: lang, value: lang }))}
+                    selected={learningLanguages}
+                    onChange={setLearningLanguages}
+                    placeholder="Select languages you're learning"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Proficiency Level</Label>
+                  <RadioGroup value={proficiency} onValueChange={setProficiency} className="flex flex-col space-y-1">
+                    {proficiencyOptions.map(option => (
+                      <div key={option.value} className="flex items-center space-x-2">
+                        <RadioGroupItem value={option.value} id={option.value} />
+                        <Label htmlFor={option.value} className="cursor-pointer">{option.label}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Interests */}
+          {step === 3 && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Interests</Label>
+                  <MultiSelect
+                    options={interestOptions.map(interest => ({ label: interest, value: interest }))}
+                    selected={interests}
+                    onChange={setInterests}
+                    placeholder="Select your interests"
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Select interests to help connect with people who share similar hobbies
+                  </p>
                 </div>
               </div>
             </div>

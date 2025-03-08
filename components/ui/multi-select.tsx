@@ -16,7 +16,7 @@ type Option = {
 interface MultiSelectProps {
   options: Option[];
   selected: string[];
-  onChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onChange: (selected: string[]) => void;
   placeholder?: string;
   className?: string;
 }
@@ -40,68 +40,66 @@ export function MultiSelect({
     const input = inputRef.current;
     if (input) {
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (input.value === "" && selected.length > 0) {
-          onChange(selected.slice(0, -1));
+        if (input.value === "") {
+          const newSelected = [...selected];
+          newSelected.pop();
+          onChange(newSelected);
         }
       }
+      // This is not a default behavior of the <input /> field
       if (e.key === "Escape") {
         input.blur();
       }
     }
   };
 
-  const selectables = options.filter(
-    (option) => !selected.includes(option.value)
-  );
+  const selectables = options.filter((option) => !selected.includes(option.value));
 
   return (
-    <Command
-      onKeyDown={handleKeyDown}
-      className={`overflow-visible bg-transparent ${className}`}
-    >
-      <div className="group border border-input px-3 py-2 text-sm ring-offset-background rounded-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-        <div className="flex gap-1 flex-wrap">
-          {selected.map((option) => {
-            return (
-              <Badge
-                key={option}
-                variant="secondary"
-                className="rounded hover:bg-secondary"
+    <div className={`border border-input px-3 py-2 rounded-md relative ${className}`}>
+      <div className="flex gap-1 flex-wrap">
+        {selected.map((option) => {
+          const selectedOption = options.find((o) => o.value === option);
+          return (
+            <Badge key={option} variant="secondary" className="mb-1">
+              {selectedOption?.label || option}
+              <button
+                type="button"
+                className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleUnselect(option);
+                  }
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onClick={() => handleUnselect(option)}
               >
-                {option}
-                <button
-                  className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleUnselect(option);
-                    }
-                  }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onClick={() => handleUnselect(option)}
-                >
-                  <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                </button>
-              </Badge>
-            );
-          })}
-          <CommandPrimitive.Input
-            ref={inputRef}
-            value={inputValue}
-            onValueChange={setInputValue}
-            onBlur={() => setOpen(false)}
-            onFocus={() => setOpen(true)}
-            placeholder={selected.length ? "" : placeholder}
-            className="ml-2 bg-transparent outline-none placeholder:text-muted-foreground flex-1"
-          />
-        </div>
+                <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+              </button>
+            </Badge>
+          );
+        })}
+        <CommandPrimitive onKeyDown={handleKeyDown}>
+          <div className="flex flex-1 items-center">
+            <CommandPrimitive.Input
+              ref={inputRef}
+              value={inputValue}
+              onValueChange={setInputValue}
+              onBlur={() => setOpen(false)}
+              onFocus={() => setOpen(true)}
+              placeholder={selected.length === 0 ? placeholder : undefined}
+              className="ml-2 bg-transparent outline-none placeholder:text-muted-foreground flex-1"
+            />
+          </div>
+        </CommandPrimitive>
       </div>
       <div className="relative mt-2">
         {open && selectables.length > 0 ? (
-          <div className="absolute w-full z-10 top-0 rounded-md border bg-popover text-popover-foreground shadow-md outline-none">
-            <CommandGroup className="h-full overflow-auto max-h-[200px]">
+          <Command className="absolute w-full z-10 bg-popover text-popover-foreground shadow-md rounded-md border border-border overflow-y-auto max-h-[300px]">
+            <CommandGroup className="overflow-hidden">
               {selectables.map((option) => {
                 return (
                   <CommandItem
@@ -114,19 +112,17 @@ export function MultiSelect({
                       setInputValue("");
                       onChange([...selected, option.value]);
                     }}
-                    className={`cursor-pointer ${
-                      option.disable ? "cursor-not-allowed opacity-50" : ""
-                    }`}
                     disabled={option.disable}
+                    className="cursor-pointer"
                   >
                     {option.label}
                   </CommandItem>
                 );
               })}
             </CommandGroup>
-          </div>
+          </Command>
         ) : null}
       </div>
-    </Command>
+    </div>
   );
 }
