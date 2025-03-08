@@ -126,10 +126,12 @@ export default function SignIn() {
           muted
           loop
           playsInline
-          className="absolute min-h-full min-w-full object-cover opacity-20"
+          className="absolute top-0 left-0 w-full h-full object-cover opacity-20"
         >
-          <source src="https://assets.mixkit.co/videos/preview/mixkit-night-sky-with-stars-at-a-calm-lake-time-lapse-53-large.mp4" type="video/mp4" />
+          <source src="/assets/92718-637669246_medium.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
         </video>
+
         <div className="absolute inset-0 bg-gradient-to-br from-pink-900/40 to-gray-900/70 backdrop-blur-sm"></div>
       </div>
 

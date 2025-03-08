@@ -1,0 +1,73 @@
+### 🚀 Fix User Authentication & Profile Display in My Node.js + MongoDB App
+
+#### 🔹 **Issues to Fix:**
+1. **User’s profile details (name, email, profile picture, bio, etc.) should be displayed on the homepage** after login.
+2. **Profile info must be fetched from MongoDB and stay updated** until the user edits it.
+3. **Profile picture should be stored and displayed properly** in the homepage and profile page.
+4. **Users should not access the homepage (`/`), community (`/community`), or dashboard (`/dashboard`) unless they are logged in**.
+5. **Logged-in users should not access the login/signup page** (`/login` or `/signup`).
+6. **Logout should clear session and redirect to the login page**.
+
+---
+
+### 🔹 **1️⃣ Backend Fixes (`routes/auth.js` & `routes/profile.js`)**
+- Modify the `POST /api/auth/login` route to:
+  - Return **JWT token** and **user profile details** (name, email, profile picture, etc.).
+  - Redirect the user to **`/` (homepage)** after successful login.
+
+- Create `GET /api/profile/me` route to:
+  - Fetch **authenticated user’s profile** from MongoDB (including profile picture).
+  - Return **user details** (name, email, profile picture, bio, etc.).
+
+- Modify `PUT /api/profile/update` route to:
+  - Allow users to update their **profile picture, bio, age, and language preferences**.
+  - Store the updated profile **permanently in MongoDB**.
+
+---
+
+### 🔹 **2️⃣ Frontend Fixes (`pages/index.js`, `pages/login.js`, `pages/community.js`)**
+- **Protect All Homepage Routes (`/`, `/dashboard`, `/community`)**
+  - If **no JWT token** is found in `localStorage`, redirect to `/login`.
+  - If **authenticated**, fetch **user profile details from `/api/profile/me`** and display on the homepage.
+
+- **Homepage (`/`)**
+  - Display **user’s profile info (name, email, bio, profile picture)** from the database.
+  - Ensure **profile picture is updated correctly** when the user changes it.
+
+- **Login Page (`/login`)**
+  - Store **JWT token & user profile** in `localStorage` after successful login.
+  - Redirect to `/` (homepage).
+  - Prevent logged-in users from accessing the login page.
+
+- **Profile Page (`/profile`)**
+  - Allow users to update **profile picture, bio, age, and languages**.
+  - Ensure changes **reflect immediately on the homepage**.
+
+---
+
+### 🔹 **3️⃣ Logout Functionality**
+- Create a **logout function** that:
+  - Removes the **JWT token and user data from `localStorage`**.
+  - Redirects the user back to `/login`.
+
+---
+
+### **🔹 4️⃣ Expected Behavior After Fixing:**
+✔ **User’s profile info (including profile picture) is displayed on the homepage after login.**  
+✔ **Only logged-in users can access homepage, community, and dashboard.**  
+✔ **Logged-in users cannot access `/login` or `/signup`.**  
+✔ **Profile updates persist until changed.**  
+✔ **Logging out clears the session and redirects to `/login`.**  
+
+---
+
+### 🔹 **5️⃣ Best Practices**
+- **Use JWT authentication** for secure access.  
+- **Fetch user profile details dynamically** from MongoDB.  
+- **Store profile pictures properly (e.g., file uploads, cloud storage, or base64 encoding).**  
+- **Implement middleware to protect all routes.**  
+
+---
+
+🔧 **Fix the code to ensure the homepage dynamically displays user profile details, profile pictures, and other personal data directly from MongoDB.**  
+Follow best practices for authentication, redirection, and session handling.
