@@ -1,15 +1,14 @@
-
 "use client";
 
-import { useState } from "react";
+import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { AppShell } from "@/components/app-shell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { MessageSquare, Mail, HelpCircle, Search } from "lucide-react";
+import { MessageSquare, Mail, HelpCircle } from "lucide-react";
+import { useState } from "react";
 
 export default function HelpPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,9 +40,9 @@ export default function HelpPage() {
     },
   ];
 
-  const filteredFaqs = searchQuery 
-    ? faqs.filter(faq => 
-        faq.question.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredFaqs = searchQuery
+    ? faqs.filter(faq =>
+        faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
         faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : faqs;
@@ -53,22 +52,22 @@ export default function HelpPage() {
       <div className="container py-6 space-y-8">
         <div>
           <h1 className="text-3xl font-bold mb-2">Help & Support</h1>
-          <p className="text-muted-foreground">Find answers to common questions or reach out for assistance</p>
+          <p className="text-muted-foreground">Get answers to common questions and find learning resources</p>
         </div>
 
-        <Card className="mb-8">
-          <CardContent className="pt-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-              <Input
-                placeholder="Search help articles and FAQs..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-center space-x-4 pb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search help topics..."
+              className="pl-8"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <Button variant="outline">Categories</Button>
+        </div>
 
         <Tabs defaultValue="faq">
           <TabsList className="mb-6">

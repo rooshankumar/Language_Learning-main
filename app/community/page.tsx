@@ -1,19 +1,19 @@
-"use client";
+"use client"
 
+import { Search } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { AppShell } from "@/components/app-shell"
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import useIsomorphicLayoutEffect from "@/hooks/use-isomorphic-layout-effect";
-import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { MessageCircle, ArrowLeft } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChat } from "@/hooks/use-chat"; // Import useChat hook
-
 
 interface UserData {
   _id: string;
@@ -149,91 +149,90 @@ export default function CommunityPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 px-4 md:px-6">
-      <div className="mb-4">
-        <Button 
-          variant="outline" 
-          onClick={() => router.push('/')}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Home
-        </Button>
-      </div>
-      <h1 className="text-3xl font-bold mb-6">Community</h1>
+    <AppShell>
+      <div className="container py-6 space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Language Community</h1>
+          <p className="text-muted-foreground">Connect with language partners and native speakers</p>
+        </div>
 
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by name, language, or interests..."
-          className="pl-10"
-          value={searchTerm}
-          onChange={handleSearch}
-        />
-      </div>
+        <div className="flex items-center space-x-4 pb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search users..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={handleSearch}
+            />
+          </div>
+          <Button variant="outline">Languages</Button>
+        </div>
 
-      <Tabs defaultValue="all">
-        <TabsList className="mb-4">
-          <TabsTrigger value="all">All Users</TabsTrigger>
-          <TabsTrigger value="online">Online Now</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="all">
+          <TabsList className="mb-4">
+            <TabsTrigger value="all">All Users</TabsTrigger>
+            <TabsTrigger value="online">Online Now</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="all">
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="border rounded-lg p-4 h-48 animate-pulse">
-                  <div className="flex items-center space-x-4">
-                    <div className="h-12 w-12 rounded-full bg-gray-200"></div>
-                    <div className="h-4 w-24 bg-gray-200 rounded"></div>
+          <TabsContent value="all">
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="border rounded-lg p-4 h-48 animate-pulse">
+                    <div className="flex items-center space-x-4">
+                      <div className="h-12 w-12 rounded-full bg-gray-200"></div>
+                      <div className="h-4 w-24 bg-gray-200 rounded"></div>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : filteredUsers.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredUsers.map((user) => (
-                <UserCard
-                  key={user._id}
-                  user={user}
-                  onChat={() => handleStartChat(user._id)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">No users found matching your search criteria.</p>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="online">
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="border rounded-lg p-4 h-48 animate-pulse">
-                  <div className="flex items-center space-x-4">
-                    <div className="h-12 w-12 rounded-full bg-gray-200"></div>
-                    <div className="h-4 w-24 bg-gray-200 rounded"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredUsers
-                .filter((user) => user.online)
-                .map((user) => (
+                ))}
+              </div>
+            ) : filteredUsers.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredUsers.map((user) => (
                   <UserCard
                     key={user._id}
                     user={user}
                     onChat={() => handleStartChat(user._id)}
                   />
                 ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No users found matching your search criteria.</p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="online">
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="border rounded-lg p-4 h-48 animate-pulse">
+                    <div className="flex items-center space-x-4">
+                      <div className="h-12 w-12 rounded-full bg-gray-200"></div>
+                      <div className="h-4 w-24 bg-gray-200 rounded"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredUsers
+                  .filter((user) => user.online)
+                  .map((user) => (
+                    <UserCard
+                      key={user._id}
+                      user={user}
+                      onChat={() => handleStartChat(user._id)}
+                    />
+                  ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+    </AppShell>
+  )
 }

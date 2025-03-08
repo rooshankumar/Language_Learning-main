@@ -1,13 +1,15 @@
-
 "use client";
 
-import { useState } from "react";
+import { Search, Calendar } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { AppShell } from "@/components/app-shell";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { LineChart, BarChart, Calendar } from "lucide-react";
+import { LineChart, BarChart } from "lucide-react";
 
 export default function ProgressPage() {
   // Mock data
@@ -43,8 +45,23 @@ export default function ProgressPage() {
     <AppShell>
       <div className="container py-6 space-y-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Progress Tracker</h1>
-          <p className="text-muted-foreground">Track your language learning journey and achievements</p>
+          <h1 className="text-3xl font-bold mb-2">Learning Progress</h1>
+          <p className="text-muted-foreground">Track your language learning journey and accomplishments</p>
+        </div>
+
+        <div className="flex items-center space-x-4 pb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search activities..."
+              className="pl-8"
+            />
+          </div>
+          <Button variant="outline">
+            <Calendar className="mr-2 h-4 w-4" />
+            Filter by Date
+          </Button>
         </div>
 
         <Tabs defaultValue="overview">
@@ -69,8 +86,8 @@ export default function ProgressPage() {
                   <div className="h-64 flex items-end justify-between gap-2">
                     {weeklyProgress.map((day) => (
                       <div key={day.day} className="flex flex-col items-center">
-                        <div 
-                          className="w-12 bg-primary rounded-t-md transition-all duration-500 ease-in-out" 
+                        <div
+                          className="w-12 bg-primary rounded-t-md transition-all duration-500 ease-in-out"
                           style={{ height: `${day.value * 0.6}%` }}
                         ></div>
                         <div className="mt-2 text-sm">{day.day}</div>

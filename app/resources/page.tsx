@@ -1,4 +1,3 @@
-
 "use client";
 
 import { AppShell } from "@/components/app-shell";
@@ -30,10 +29,10 @@ export default function ResourcesPage() {
 
   return (
     <AppShell>
-      <div className="container py-6 space-y-6">
+      <div className="container py-6 space-y-8">
         <div>
           <h1 className="text-3xl font-bold mb-2">Learning Resources</h1>
-          <p className="text-muted-foreground">Browse and download learning materials to enhance your studies</p>
+          <p className="text-muted-foreground">Discover materials to improve your language skills</p>
         </div>
 
         <div className="flex items-center space-x-4 pb-4">
@@ -45,7 +44,8 @@ export default function ResourcesPage() {
               className="pl-8"
             />
           </div>
-          <Button variant="outline">Filters</Button>
+          <Button variant="outline">Resource Type</Button>
+          <Button variant="outline">Language</Button>
         </div>
 
         <Tabs defaultValue="grammar">
@@ -94,7 +94,7 @@ export default function ResourcesPage() {
                   <Button variant="outline" className="w-full">Watch Video</Button>
                 </CardFooter>
               </Card>
-              
+
               <Card>
                 <div className="relative aspect-video bg-muted">
                   <Video className="absolute inset-0 m-auto h-12 w-12 text-muted-foreground/50" />
@@ -107,7 +107,7 @@ export default function ResourcesPage() {
                   <Button variant="outline" className="w-full">Watch Video</Button>
                 </CardFooter>
               </Card>
-              
+
               <Card>
                 <div className="relative aspect-video bg-muted">
                   <Video className="absolute inset-0 m-auto h-12 w-12 text-muted-foreground/50" />
@@ -145,10 +145,13 @@ export default function ResourcesPage() {
 
 function ResourceCard({ resource }: { resource: any }) {
   const getIcon = (type: string) => {
-    switch(type) {
-      case 'PDF': return <FileText className="h-5 w-5" />;
-      case 'ZIP': return <Headphones className="h-5 w-5" />;
-      default: return <BookOpen className="h-5 w-5" />;
+    switch (type) {
+      case 'PDF':
+        return <FileText className="h-5 w-5" />;
+      case 'ZIP':
+        return <Headphones className="h-5 w-5" />;
+      default:
+        return <BookOpen className="h-5 w-5" />;
     }
   };
 
