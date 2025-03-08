@@ -10,8 +10,10 @@ import { Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, User, ArrowLeft } from "lucide-react";
+import { MessageCircle, ArrowLeft } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useChat } from "@/hooks/use-chat"; // Import useChat hook
+
 
 interface UserData {
   _id: string;
@@ -25,7 +27,7 @@ interface UserData {
   online?: boolean;
 }
 
-function UserCard({ user, onChat, onViewProfile }) {
+function UserCard({ user, onChat }) {
   return (
     <Card className="p-4 hover:shadow-md transition-shadow">
       <div className="flex items-start space-x-4">
@@ -58,10 +60,6 @@ function UserCard({ user, onChat, onViewProfile }) {
               <MessageCircle className="h-4 w-4 mr-1" />
               Chat
             </Button>
-            <Button size="sm" variant="outline" onClick={onViewProfile}>
-              <User className="h-4 w-4 mr-1" />
-              Profile
-            </Button>
           </div>
         </div>
       </div>
@@ -76,6 +74,7 @@ export default function CommunityPage() {
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const { createOrGetChat } = useChat('', ''); // Initialize useChat hook
 
   // Redirect if not logged in
   useEffect(() => {
@@ -129,13 +128,17 @@ export default function CommunityPage() {
     setSearchTerm(e.target.value);
   };
 
-  const handleStartChat = (userId: string) => {
-    router.push(`/chat/${userId}`);
+  const handleStartChat = async (userId: string) => {
+    if (!createOrGetChat) return;
+
+    try {
+      const chatId = await createOrGetChat(userId);
+      router.push(`/chat/${chatId}`);
+    } catch (error) {
+      console.error("Error starting chat:", error);
+    }
   };
 
-  const handleViewProfile = (userId: string) => {
-    router.push(`/profile/${userId}`);
-  };
 
   if (loading) {
     return <div className="p-8 text-center">Loading...</div>;
@@ -194,7 +197,6 @@ export default function CommunityPage() {
                   key={user._id}
                   user={user}
                   onChat={() => handleStartChat(user._id)}
-                  onViewProfile={() => handleViewProfile(user._id)}
                 />
               ))}
             </div>
@@ -225,6 +227,7 @@ export default function CommunityPage() {
                   <UserCard
                     key={user._id}
                     user={user}
+                    onChat={() => handleStartChat(user._id)}
                   />
                 ))}
             </div>
