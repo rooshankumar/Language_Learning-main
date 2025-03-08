@@ -115,3 +115,80 @@ export function WelcomeBanner() {
     </Card>
   )
 }
+"use client";
+
+import { useAuth } from "@/contexts/auth-context";
+import { useRouter } from "next/navigation";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+
+export function WelcomeBanner() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const [isFirstVisit, setIsFirstVisit] = useState(false);
+
+  useEffect(() => {
+    // Check if this is the user's first visit
+    // This would typically check a database flag
+    const hasVisitedBefore = localStorage.getItem('hasVisitedDashboard');
+    if (!hasVisitedBefore) {
+      setIsFirstVisit(true);
+      localStorage.setItem('hasVisitedDashboard', 'true');
+    }
+  }, []);
+
+  return (
+    <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-100 dark:border-blue-900">
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">
+              {isFirstVisit 
+                ? "Welcome to LinguaConnect!" 
+                : `Welcome back, ${user?.displayName || "language learner"}!`}
+            </h2>
+            <p className="text-muted-foreground mb-4">
+              {isFirstVisit
+                ? "Your journey to language mastery starts now. Here's what you can do:"
+                : "Continue your language learning journey with these options:"}
+            </p>
+            
+            <div className="flex flex-wrap gap-3">
+              <Button 
+                onClick={() => router.push("/community")}
+                variant="default"
+              >
+                Find Language Partners
+              </Button>
+              
+              {isFirstVisit && (
+                <Button 
+                  onClick={() => router.push("/profile")}
+                  variant="outline"
+                >
+                  Complete Your Profile
+                </Button>
+              )}
+              
+              {!isFirstVisit && (
+                <Button 
+                  onClick={() => router.push("/chat")}
+                  variant="outline"
+                >
+                  Continue Conversations
+                </Button>
+              )}
+            </div>
+          </div>
+          
+          <div className="hidden md:block">
+            <div className="relative w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center">
+              <div className="text-primary text-4xl font-bold">LC</div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

@@ -1,3 +1,4 @@
+
 "use client"
 
 import type React from "react"
@@ -6,7 +7,21 @@ import { useSidebar } from "@/components/sidebar-provider"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Separator } from "@/components/ui/separator"
-import { Globe, Home, MessageCircle, PanelLeft, Settings, User, Users, LogOut } from "lucide-react"
+import { 
+  Globe, 
+  Home, 
+  MessageCircle, 
+  PanelLeft, 
+  Settings, 
+  User, 
+  Users, 
+  LogOut,
+  BookOpen,
+  LineChart,
+  HelpCircle,
+  FileText,
+  BookMarked
+} from "lucide-react"
 import Link from "next/link"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
@@ -40,8 +55,12 @@ export function AppSidebar() {
           <NavItem href="/" icon={Home} label="Dashboard" />
           <NavItem href="/chat" icon={MessageCircle} label="Chat" />
           <NavItem href="/community" icon={Users} label="Community" />
+          <NavItem href="/progress" icon={LineChart} label="Progress" />
+          <NavItem href="/resources" icon={BookOpen} label="Resources" />
+          <NavItem href="/blog" icon={BookMarked} label="Blog" />
           <NavItem href="/profile" icon={User} label="Profile" />
           <NavItem href="/settings" icon={Settings} label="Settings" />
+          <NavItem href="/help" icon={HelpCircle} label="Help & Support" />
         </nav>
       </div>
       <Separator className="bg-sidebar-border" />
