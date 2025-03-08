@@ -13,10 +13,31 @@ export const connectToDatabase = async () => {
   }
 
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    isConnected = true;
-    console.log('MongoDB connected successfully');
+    if (mongoose.connection.readyState === 0) {
+      // Set mongoose options
+      const options: mongoose.ConnectOptions = {
+        // These options help with connection stability
+        maxPoolSize: 10,
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+      };
+      
+      await mongoose.connect(process.env.MONGODB_URI, options);
+      isConnected = true;
+      console.log('✅ MongoDB connected successfully');
+    } else {
+      isConnected = true;
+      console.log('✅ MongoDB already connected');
+    }
   } catch (error) {
-    console.error('Error connecting to MongoDB:', error);
+    console.error('❌ Error connecting to MongoDB:', error);
   }
 };
+
+export async function disconnectFromDatabase() {
+  if (isConnected) {
+    await mongoose.disconnect();
+    isConnected = false;
+    console.log('MongoDB disconnected');
+  }
+}
