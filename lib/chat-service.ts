@@ -1,51 +1,41 @@
-
-import { connectToDatabase } from '@/lib/mongoose';
-import Chat from '@/models/Chat';
-import User from '@/models/User';
+import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
-// Get all chats for a user
 export async function getUserChats(userId: string) {
-  await connectToDatabase();
-
   try {
-    const chats = await Chat.find({
-      participants: userId
-    })
-    .populate({
-      path: 'participants',
-      select: 'name image online lastSeen profilePic'
-    })
-    .sort({ updatedAt: -1 })
-    .lean();
+    const client = await clientPromise;
+    const db = client.db();
+
+    // Convert string ID to ObjectId if needed
+    const userObjectId = typeof userId === 'string' ? new ObjectId(userId) : userId;
+
+    // Find chats where the user is a participant
+    const chats = await db.collection('chats').find({
+      participants: userObjectId
+    }).toArray();
 
     return { success: true, chats };
   } catch (error) {
-    console.error('Error fetching chats:', error);
+    console.error('Error fetching user chats:', error);
     return { success: false, error: 'Failed to fetch chats' };
   }
 }
 
-// Get a single chat by ID
-export async function getChatById(chatId: string, userId: string) {
-  await connectToDatabase();
-
+export async function getChatWithUser(currentUserId: string, otherUserId: string) {
   try {
-    const chat = await Chat.findById(chatId)
-      .populate({
-        path: 'participants',
-        select: 'name image online lastSeen profilePic'
-      })
-      .lean();
+    const client = await clientPromise;
+    const db = client.db();
 
-    if (!chat) {
-      return { success: false, error: 'Chat not found' };
-    }
+    // Convert string IDs to ObjectId
+    const currentUserObjectId = typeof currentUserId === 'string' ? new ObjectId(currentUserId) : currentUserId;
+    const otherUserObjectId = typeof otherUserId === 'string' ? new ObjectId(otherUserId) : otherUserId;
 
-    // Check if user is a participant
-    if (!chat.participants.some((p: any) => p._id.toString() === userId)) {
-      return { success: false, error: 'Unauthorized access to chat' };
-    }
+    // Find chat where both users are participants
+    const chat = await db.collection('chats').findOne({
+      participants: { 
+        $all: [currentUserObjectId, otherUserObjectId] 
+      }
+    });
 
     return { success: true, chat };
   } catch (error) {
@@ -54,68 +44,96 @@ export async function getChatById(chatId: string, userId: string) {
   }
 }
 
-// Create a new chat
-export async function createChat(userId: string, otherUserId: string) {
-  await connectToDatabase();
-
+export async function getUserById(userId: string) {
   try {
-    // Check if a chat already exists between these users
-    const existingChat = await Chat.findOne({
-      participants: { $all: [userId, otherUserId] }
-    });
+    const client = await clientPromise;
+    const db = client.db();
 
-    if (existingChat) {
-      return { success: true, chatId: existingChat._id };
-    }
+    // Convert string ID to ObjectId
+    const userObjectId = typeof userId === 'string' ? new ObjectId(userId) : userId;
 
-    // Create new chat
-    const newChat = await Chat.create({
-      participants: [userId, otherUserId],
-      createdBy: userId,
-      messages: [],
-    });
-
-    return { success: true, chatId: newChat._id };
+    const user = await db.collection('users').findOne({ _id: userObjectId });
+    return { success: true, user };
   } catch (error) {
-    console.error('Error creating chat:', error);
-    return { success: false, error: 'Failed to create chat' };
+    console.error('Error fetching user:', error);
+    return { success: false, error: 'Failed to fetch user' };
   }
 }
 
-// Send a message
-export async function sendMessage(chatId: string, userId: string, text: string) {
-  await connectToDatabase();
-
+export async function sendMessage(chatId: string, senderId: string, text: string) {
   try {
-    const chat = await Chat.findById(chatId);
-    if (!chat) {
-      return { success: false, error: 'Chat not found' };
-    }
+    const client = await clientPromise;
+    const db = client.db();
 
-    // Check if user is a participant
-    if (!chat.participants.includes(userId)) {
-      return { success: false, error: 'Unauthorized to send message in this chat' };
-    }
-
-    const newMessage = {
-      sender: userId,
+    const message = {
+      sender: typeof senderId === 'string' ? new ObjectId(senderId) : senderId,
       text,
+      readAt: null,
       createdAt: new Date()
     };
 
     // Add message to chat
-    chat.messages.push(newMessage);
-    chat.lastMessage = {
-      text,
-      sender: userId,
-      createdAt: new Date()
-    };
+    await db.collection('chats').updateOne(
+      { _id: typeof chatId === 'string' ? new ObjectId(chatId) : chatId },
+      { 
+        $push: { messages: message },
+        $set: { 
+          lastMessage: { 
+            text, 
+            sender: message.sender, 
+            createdAt: message.createdAt 
+          },
+          updatedAt: new Date()
+        }
+      }
+    );
 
-    await chat.save();
-    return { success: true, messageId: chat.messages[chat.messages.length - 1]._id };
+    return { success: true, message };
   } catch (error) {
     console.error('Error sending message:', error);
     return { success: false, error: 'Failed to send message' };
+  }
+}
+
+export async function createChat(currentUserId: string, otherUserId: string) {
+  try {
+    const client = await clientPromise;
+    const db = client.db();
+
+    // Convert string IDs to ObjectId
+    const currentUserObjectId = typeof currentUserId === 'string' ? new ObjectId(currentUserId) : currentUserId;
+    const otherUserObjectId = typeof otherUserId === 'string' ? new ObjectId(otherUserId) : otherUserId;
+
+    // Check if chat already exists
+    const existingChat = await db.collection('chats').findOne({
+      participants: { 
+        $all: [currentUserObjectId, otherUserObjectId] 
+      }
+    });
+
+    if (existingChat) {
+      return { success: true, chat: existingChat };
+    }
+
+    // Create new chat
+    const newChat = {
+      participants: [currentUserObjectId, otherUserObjectId],
+      messages: [],
+      lastMessage: null,
+      createdBy: currentUserObjectId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const result = await db.collection('chats').insertOne(newChat);
+
+    return { 
+      success: true, 
+      chat: { ...newChat, _id: result.insertedId } 
+    };
+  } catch (error) {
+    console.error('Error creating chat:', error);
+    return { success: false, error: 'Failed to create chat' };
   }
 }
 

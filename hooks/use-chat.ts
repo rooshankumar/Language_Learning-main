@@ -1,3 +1,95 @@
+import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { getUserChats, getChatWithUser, sendMessage, createChat } from '@/lib/chat-service';
+
+export function useChat() {
+  const { data: session } = useSession();
+  const [chats, setChats] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchChats = async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      setLoading(true);
+      const result = await getUserChats(session.user.id);
+
+      if (result.success) {
+        setChats(result.chats);
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error('Error in fetchChats:', err);
+      setError('Failed to fetch chats');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getChatWith = async (userId) => {
+    if (!session?.user?.id) return null;
+
+    try {
+      // Try to find existing chat
+      const existingChat = await getChatWithUser(session.user.id, userId);
+
+      if (existingChat.success && existingChat.chat) {
+        return existingChat.chat;
+      }
+
+      // Create new chat if none exists
+      const newChat = await createChat(session.user.id, userId);
+
+      if (newChat.success) {
+        return newChat.chat;
+      }
+
+      return null;
+    } catch (err) {
+      console.error('Error in getChatWith:', err);
+      return null;
+    }
+  };
+
+  const sendChatMessage = async (chatId, text) => {
+    if (!session?.user?.id || !chatId || !text) return null;
+
+    try {
+      const result = await sendMessage(chatId, session.user.id, text);
+
+      if (result.success) {
+        // Refresh chats
+        fetchChats();
+        return result.message;
+      }
+
+      return null;
+    } catch (err) {
+      console.error('Error in sendChatMessage:', err);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchChats();
+    }
+  }, [session?.user?.id]);
+
+  return {
+    chats,
+    loading,
+    error,
+    fetchChats,
+    getChatWith,
+    sendChatMessage
+  };
+}
+
+export default useChat;
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Socket, io } from 'socket.io-client';
 import { useAuth } from '@/contexts/auth-context';

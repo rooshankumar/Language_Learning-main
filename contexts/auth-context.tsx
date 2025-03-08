@@ -3,6 +3,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import clientPromise from "@/lib/mongodb"; // Added MongoDB client import
+import { ObjectId } from "mongodb";       // Added ObjectId import
+
 
 export const AuthContext = createContext(null);
 
