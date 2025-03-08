@@ -1,3 +1,4 @@
+
 'use server';
 
 import clientPromise from '@/lib/mongodb';
@@ -142,35 +143,30 @@ export async function createChat(currentUserId: string, otherUserId: string) {
 // Function to mark all messages in a chat as read
 export async function markMessagesAsRead(chatId: string, userId: string) {
   try {
-    const chat = await Chat.findById(chatId);
-    if (!chat) return false;
+    const client = await clientPromise;
+    const db = client.db();
+    
+    const chatIdObj = typeof chatId === 'string' ? new ObjectId(chatId) : chatId;
+    const userIdObj = typeof userId === 'string' ? new ObjectId(userId) : userId;
 
     // Update messages where user is not the sender and message is unread
-    const updated = await Chat.updateMany(
+    const result = await db.collection('chats').updateOne(
+      { _id: chatIdObj },
       { 
-        _id: chatId,
-        "messages.sender": { $ne: userId },
-        "messages.readAt": { $exists: false }
+        $set: { 
+          "messages.$[elem].readAt": new Date() 
+        } 
       },
-      { $set: { "messages.$[elem].readAt": new Date() } },
-      { arrayFilters: [{ "elem.sender": { $ne: userId }, "elem.readAt": { $exists: false } }] }
+      { 
+        arrayFilters: [
+          { "elem.sender": { $ne: userIdObj }, "elem.readAt": null }
+        ] 
+      }
     );
 
-    return true;
+    return { success: true, result };
   } catch (error) {
     console.error("Error marking messages as read:", error);
-    return false;
+    return { success: false, error: 'Failed to mark messages as read' };
   }
-}
-
-// Since we're using MongoDB and not Firebase, we don't need real-time subscriptions
-// This is a placeholder that returns a cleanup function
-export function subscribeToChatMessages(chatId: string, callback: Function) {
-  // In a real implementation, you might use WebSockets or Server-Sent Events here
-  console.log("Subscription to chat messages is not implemented with MongoDB");
-
-  // Return a cleanup function
-  return () => {
-    console.log("Cleaning up chat subscription");
-  };
 }

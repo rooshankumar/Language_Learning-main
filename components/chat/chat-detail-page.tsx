@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -8,8 +7,8 @@ import {
   getChatById, 
   sendMessage as sendChatMessage,
   markMessagesAsRead,
-  subscribeToChatMessages
 } from '@/lib/chat-service';
+import { subscribeToChatMessages } from '@/lib/chat-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,21 +33,21 @@ export default function ChatDetailPage() {
   useEffect(() => {
     const fetchChat = async () => {
       if (!userId) return;
-      
+
       setLoading(true);
       try {
         const response = await getChatById(chatId, userId);
-        
+
         if (response.success && response.chat) {
           setChat(response.chat);
           setMessages(response.chat.messages || []);
-          
+
           // Find the other participant
           const other = response.chat.participants.find(
             (p: any) => p._id.toString() !== userId
           );
           setOtherUser(other);
-          
+
           // Mark messages as read
           await markMessagesAsRead(chatId, userId);
         } else {
@@ -62,7 +61,7 @@ export default function ChatDetailPage() {
     };
 
     fetchChat();
-    
+
     // Set up subscription to new messages
     const unsubscribe = subscribeToChatMessages(chatId, (updatedMessages: any) => {
       setMessages(updatedMessages);
@@ -80,16 +79,16 @@ export default function ChatDetailPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!messageText.trim() || sending || !userId) return;
-    
+
     setSending(true);
     try {
       const response = await sendChatMessage(chatId, userId, messageText);
-      
+
       if (response.success) {
         setMessageText('');
-        
+
         // Refresh chat to get the new message
         const updatedChat = await getChatById(chatId, userId);
         if (updatedChat.success) {
@@ -137,7 +136,7 @@ export default function ChatDetailPage() {
         <Button variant="ghost" size="icon" onClick={goBack}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        
+
         {otherUser && (
           <div className="flex items-center ml-4">
             <div className="relative h-10 w-10 rounded-full overflow-hidden">
@@ -159,7 +158,7 @@ export default function ChatDetailPage() {
           </div>
         )}
       </div>
-      
+
       <div className="flex-grow p-4 overflow-auto">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -168,7 +167,7 @@ export default function ChatDetailPage() {
         ) : (
           messages.map((message: any) => {
             const isOwnMessage = message.sender.toString() === userId;
-            
+
             return (
               <div 
                 key={message._id} 
@@ -184,7 +183,7 @@ export default function ChatDetailPage() {
                     />
                   </div>
                 )}
-                
+
                 <div className={`px-4 py-2 rounded-lg max-w-[70%] ${
                   isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-muted'
                 }`}>
@@ -203,7 +202,7 @@ export default function ChatDetailPage() {
         )}
         <div ref={messagesEndRef} />
       </div>
-      
+
       <form onSubmit={handleSendMessage} className="border-t p-4 flex">
         <Input
           placeholder="Type a message..."
