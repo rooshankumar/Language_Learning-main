@@ -14,26 +14,35 @@ export const connectToDatabase = async () => {
   }
 
   try {
-    if (mongoose.connection.readyState === 0) {
-      // Set mongoose options for better reliability
+    // Check connection state
+    const connectionState = mongoose.connection.readyState;
+    
+    if (connectionState === 0) {
+      // Not connected, connect now
       const options: mongoose.ConnectOptions = {
         maxPoolSize: 10,
         serverSelectionTimeoutMS: 30000,
         socketTimeoutMS: 45000,
         family: 4, // Use IPv4, skip trying IPv6
-        retryWrites: true,
-        retryReads: true,
       };
 
       await mongoose.connect(process.env.MONGODB_URI, options);
       isConnected = true;
       console.log('✅ MongoDB connected successfully');
-    } else {
+    } else if (connectionState === 1) {
+      // Already connected
       isConnected = true;
       console.log('✅ MongoDB already connected');
+    } else if (connectionState === 2) {
+      // Connecting
+      console.log('⏳ MongoDB connection in progress...');
+    } else if (connectionState === 3) {
+      // Disconnecting
+      console.log('⚠️ MongoDB disconnecting...');
     }
   } catch (error) {
     console.error('❌ Error connecting to MongoDB:', error);
+    console.error('URI (redacted):', process.env.MONGODB_URI?.replace(/\/\/(.+?)@/, '//****:****@'));
     throw error;
   }
 };

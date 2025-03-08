@@ -1,11 +1,7 @@
 
-import { useLayoutEffect, useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react'
 
-/**
- * A hook that provides useLayoutEffect on the client
- * and useEffect during SSR to avoid React hydration warnings
- */
-const useIsomorphicLayoutEffect = 
-  typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+// Use useLayoutEffect on client side and useEffect on server side
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
-export default useIsomorphicLayoutEffect;
+export default useIsomorphicLayoutEffect

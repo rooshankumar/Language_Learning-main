@@ -10,6 +10,30 @@ import User from "@/models/User";
 import clientPromise from "@/lib/mongodb";
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === 'development',
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      // Add user data to the token when a user signs in
+      if (user) {
+        token.id = user.id;
+        token.isOnboarded = user.isOnboarded;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      // Add custom user data from token to the session
+      if (session.user && token) {
+        session.user.id = token.id as string;
+        session.user.isOnboarded = token.isOnboarded as boolean;
+      }
+      return session;
+    }
+  },
   providers: [
     CredentialsProvider({
       name: "Credentials",

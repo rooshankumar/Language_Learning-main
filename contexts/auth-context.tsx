@@ -53,7 +53,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // After initial load, set loading to false
     if (status !== "loading") {
       setLoading(false);
-      setUser(session?.user); //Set user state on initial load
+      if (session?.user) {
+        // Properly map user data from session to our expected format
+        setUser({
+          id: session.user.id || '',
+          displayName: session.user.name || '',
+          email: session.user.email || '',
+          photoURL: session.user.image || '/placeholder-user.jpg',
+          bio: session.user.bio || ''
+        });
+      } else {
+        setUser(null);
+      }
     }
   }, [status, session]);
 
