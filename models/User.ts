@@ -22,6 +22,7 @@ const userSchema = new Schema(
     photoURL: { type: String, default: '/placeholder-user.jpg' }, // For compatibility
     profilePic: { type: String, default: '/placeholder-user.jpg' }, // Cloudinary URL
     displayName: { type: String }, // Add displayName field
+    country: { type: String }, // Add country field
   },
   { timestamps: true }
 );

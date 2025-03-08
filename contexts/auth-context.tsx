@@ -3,8 +3,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import clientPromise from "@/lib/mongodb"; // Added MongoDB client import
-import { ObjectId } from "mongodb";       // Added ObjectId import
+import clientPromise from "@/lib/mongodb"; 
+import { ObjectId } from "mongodb";       
 
 
 export const AuthContext = createContext(null);
@@ -42,7 +42,6 @@ export function AuthProvider({ children }) {
         throw new Error(result.error);
       }
 
-      // Force router refresh to ensure session is updated
       router.refresh();
       return { success: true };
     } catch (error) {
@@ -68,7 +67,6 @@ export function AuthProvider({ children }) {
         throw new Error(data.error || 'Registration failed');
       }
 
-      // Login after successful registration
       return await login(email, password);
     } catch (error) {
       console.error('Registration error:', error);
@@ -84,13 +82,23 @@ export function AuthProvider({ children }) {
         redirect: false,
         callbackUrl: '/sign-in'
       });
-      
+
       setUser(null);
-      
-      // Force hard navigation to sign-in page
       window.location.href = '/sign-in';
     } catch (error) {
       console.error('Logout error:', error);
+    }
+  };
+
+  const updateUser = (userData: any) => {
+    setUser((prevUser) => ({ ...prevUser, ...userData }));
+
+    if (typeof window !== 'undefined') {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        localStorage.setItem('user', JSON.stringify({ ...parsedUser, ...userData }));
+      }
     }
   };
 
@@ -102,6 +110,7 @@ export function AuthProvider({ children }) {
     logout,
     register,
     isAuthenticated: !!user,
+    updateUser, // Added updateUser to the context
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

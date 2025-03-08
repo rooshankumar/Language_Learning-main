@@ -14,6 +14,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { MessageCircle, ArrowLeft } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChat } from "@/hooks/use-chat"; // Import useChat hook
+import { ProfileCard } from "@/components/profile/profile-card";
 
 interface UserData {
   _id: string;
