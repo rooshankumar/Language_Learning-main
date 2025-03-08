@@ -1,8 +1,8 @@
+
 import { connectToDatabase } from '@/lib/mongoose';
 import User from '@/models/User';
 import { MongoDBAdapter } from '@next-auth/mongodb-adapter';
 import bcrypt from 'bcryptjs';
-import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import clientPromise from '@/lib/mongodb';
 import type { NextAuthOptions } from 'next-auth';
@@ -34,7 +34,7 @@ export const authOptions: NextAuthOptions = {
           if (!isValid) {
             throw new Error('Invalid password');
           }
-
+          
           return user;
         } catch (error) {
           console.error('Authorization error:', error);
@@ -63,6 +63,3 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === 'development',
 };
-
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
