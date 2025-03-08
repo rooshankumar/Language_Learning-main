@@ -89,11 +89,12 @@ export const authOptions: NextAuthOptions = {
   adapter: MongoDBAdapter(clientPromise),
 };
 
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
 import NextAuth from "next-auth";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import CredentialsProvider from "next-auth/providers/credentials";
+
+const handler = NextAuth(authOptions);
+export { handler as GET, handler as POST };
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import clientPromise from "@/lib/mongodb";
