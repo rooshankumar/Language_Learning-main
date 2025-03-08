@@ -4,7 +4,7 @@ import { authOptions } from '../../auth/[...nextauth]/route';
 import { connectToDatabase } from '@/lib/mongoose';
 import User from '@/models/User';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -26,11 +26,12 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({
+    const userData = {
+      id: user._id,
       name: user.name,
       email: user.email,
       image: user.image,
-      bio: user.bio,
+      bio: user.bio || '',
       age: user.age,
       nativeLanguage: user.nativeLanguage,
       learningLanguage: user.learningLanguage,
@@ -41,7 +42,17 @@ export async function GET() {
       isOnboarded: user.isOnboarded,
       lastSeen: user.lastSeen,
       online: user.online || false,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
+
+    // Update user's last seen timestamp
+    await User.findByIdAndUpdate(user._id, { 
+      lastSeen: new Date(),
+      online: true
     });
+
+    return NextResponse.json(userData);
   } catch (error) {
     console.error('Error fetching user profile:', error);
     return new NextResponse(

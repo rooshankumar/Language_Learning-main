@@ -1,126 +1,56 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { signIn, signOut, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { Session } from "next-auth";
+import { useSession, signIn, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
-interface AuthContextType {
-  user: Session['user'] | null;
+type AuthContextType = {
+  session: Session | null;
+  status: "loading" | "authenticated" | "unauthenticated";
+  user: any;
+  signIn: (provider: string, options?: any) => Promise<any>;
+  signOut: () => Promise<any>;
+  updateSession: () => Promise<void>;
+  isOnboarded: boolean;
   loading: boolean;
-  error: string | null;
-  signIn: (provider: string, credentials?: { email: string; password: string }) => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  updateUserProfile: (profileData: any) => Promise<void>;
-}
+  updateUserProfile: (profileData: any) => Promise<void>; // Added from original code
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession();
-  const [error, setError] = useState<string | null>(null);
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
+  const { data: session, status, update } = useSession();
+  const [loading, setLoading] = useState(true);
 
-  const loading = status === "loading";
-  const user = session?.user || null;
-
-  const handleSignIn = async (provider: string, credentials?: { email: string; password: string }) => {
+  const updateSession = useCallback(async () => {
     try {
-      if (provider === "credentials" && credentials) {
-        const result = await signIn("credentials", {
-          redirect: false,
-          email: credentials.email,
-          password: credentials.password,
-        });
-
-        if (result?.error) {
-          setError(result.error);
-          throw new Error(result.error);
-        }
-
-        router.push(session?.user?.isOnboarded ? '/' : '/onboarding');
-      } else {
-        await signIn(provider, { callbackUrl: '/' });
-      }
-    } catch (error: any) {
-      setError(error.message);
-      throw error;
+      setLoading(true);
+      await update();
+    } catch (error) {
+      console.error("Error updating session:", error);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [update]);
 
-  const handleSignUp = async (email: string, password: string, name: string) => {
-    try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message);
-        throw new Error(data.message);
-      }
-
-      // Auto sign in after registration
-      await handleSignIn("credentials", { email, password });
-
-      router.push('/onboarding');
-    } catch (error: any) {
-      setError(error.message);
-      throw error;
+  useEffect(() => {
+    // After initial load, set loading to false
+    if (status !== "loading") {
+      setLoading(false);
     }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await signOut({ callbackUrl: '/sign-in' });
-    } catch (error: any) {
-      setError(error.message);
-      throw error;
-    }
-  };
-
-  const handleResetPassword = async (email: string) => {
-    try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message);
-        throw new Error(data.message);
-      }
-    } catch (error: any) {
-      setError(error.message);
-      throw error;
-    }
-  };
+  }, [status]);
 
   const updateUserProfile = async (profileData: any) => {
     try {
-      if (!user) throw new Error('No user logged in');
+      if (!session?.user) throw new Error('No user logged in');
 
       // Handle image upload if there's a file
       if (profileData.imageFile) {
         const formData = new FormData();
         formData.append('file', profileData.imageFile);
-        formData.append('userId', user.id);
+        formData.append('userId', session.user.id);
 
         const uploadRes = await fetch('/api/upload', {
           method: 'POST',
@@ -152,44 +82,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(errorData.message || 'Failed to update profile');
       }
 
-      // Update the session
-      const updatedSession = {
-        ...session,
-        user: {
-          ...session?.user,
-          ...profileData,
-        },
-      };
+      // Update the session -  This part is already handled by next-auth's update()
+      // const updatedSession = { ...session, user: { ...session?.user, ...profileData } };
 
-      // Force a refresh of the session
-      await fetch('/api/auth/session', { method: 'GET' });
+      // Force a refresh of the session - This is also handled implicitly by next-auth
+      // await fetch('/api/auth/session', { method: 'GET' });
 
+      await updateSession(); // Use updateSession to refresh after profile update.
       return await res.json();
     } catch (error: any) {
       console.error("Profile update error:", error);
-      setError(error.message);
+      // setError(error.message); // No setError in this context.  Error handling should be done by the caller.
       throw error;
     }
   };
 
+
   const value = {
-    user,
-    loading,
-    error,
-    signIn: handleSignIn,
-    signUp: handleSignUp,
-    signOut: handleSignOut,
-    resetPassword: handleResetPassword,
-    updateUserProfile,
+    session,
+    status,
+    user: session?.user || null,
+    signIn,
+    signOut: async () => {
+      await signOut({ redirect: false });
+      router.push("/sign-in");
+    },
+    updateSession,
+    isOnboarded: !!session?.user?.isOnboarded,
+    loading: status === "loading" || loading,
+    updateUserProfile, // Added from original code
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+};
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-}
+};

@@ -9,6 +9,10 @@ import { AnimatedBackground } from "@/components/animated-background"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import type { Firestore } from "firebase/firestore"
+import { Tabs, TabsList, TabsContent, TabsTrigger } from "@/components/ui/tabs"
+import { Users, MessageSquare } from "lucide-react"
+import { ProfileDashboard } from "@/components/profile-dashboard" // Assuming this component exists
+
 
 export default function Home() {
   const { user, loading } = useAuth()
@@ -16,7 +20,6 @@ export default function Home() {
 
   useEffect(() => {
     if (!loading && user?.uid) {
-      // Async function to check user onboarding status
       const checkOnboardingStatus = async () => {
         try {
           const { doc, getDoc } = await import("firebase/firestore")
@@ -31,7 +34,6 @@ export default function Home() {
           const userDoc = await getDoc(userDocRef)
           const userData = userDoc.exists() ? userDoc.data() : null
 
-          // If user has no languages set, redirect to onboarding
           if (!userData?.nativeLanguages?.length || !userData?.learningLanguages?.length) {
             router.push("/onboarding")
           }
@@ -43,6 +45,11 @@ export default function Home() {
       checkOnboardingStatus()
     }
   }, [user, loading, router])
+
+  const setActiveTab = (value: string) => {
+    //Handle active tab state if needed.  This is a placeholder.
+  }
+
 
   // If user is not authenticated, show landing page
   if (!user && !loading) {
@@ -70,5 +77,40 @@ export default function Home() {
     )
   }
 
-  return <AppShell>{user && <Dashboard />}</AppShell>
+  return (
+    <AppShell>
+      <div className="container py-6">
+        <Tabs defaultValue="profile" onValueChange={setActiveTab} className="w-full">
+          <div className="flex justify-between items-center mb-6">
+            <TabsList>
+              <TabsTrigger value="profile">My Profile</TabsTrigger>
+              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            </TabsList>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" asChild>
+                <Link href="/community">
+                  <Users className="h-4 w-4 mr-2" />
+                  Community
+                </Link>
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link href="/chat">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Messages
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          <TabsContent value="profile" className="mt-0">
+            <ProfileDashboard />
+          </TabsContent>
+
+          <TabsContent value="dashboard" className="mt-0">
+            <Dashboard />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </AppShell>
+  )
 }

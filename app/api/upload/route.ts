@@ -141,3 +141,61 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]/route';
+import { writeFile } from 'fs/promises';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.email) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Unauthorized' }),
+        { status: 401 }
+      );
+    }
+
+    const formData = await request.formData();
+    const file = formData.get('file') as File | null;
+
+    if (!file) {
+      return new NextResponse(
+        JSON.stringify({ message: 'No file provided' }),
+        { status: 400 }
+      );
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const filename = `${uuidv4()}_${file.name.replace(/\s/g, '_')}`;
+    
+    // Create uploads directory in public folder if it doesn't exist
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+    
+    try {
+      await writeFile(path.join(uploadDir, filename), buffer);
+    } catch (error) {
+      console.error('Error writing file:', error);
+      // If directory doesn't exist, create it and try again
+      const { mkdir } = require('fs/promises');
+      await mkdir(uploadDir, { recursive: true });
+      await writeFile(path.join(uploadDir, filename), buffer);
+    }
+
+    const imageUrl = `/uploads/${filename}`;
+
+    return NextResponse.json({ 
+      message: 'File uploaded successfully',
+      imageUrl: imageUrl
+    });
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    return new NextResponse(
+      JSON.stringify({ message: 'Error uploading file' }),
+      { status: 500 }
+    );
+  }
+}

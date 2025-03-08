@@ -1,11 +1,14 @@
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { toast } from '@/components/ui/use-toast';
 
 export function useProfile() {
   const { data: session, update } = useSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
   
   const updateProfile = async (profileData: any) => {
     try {
@@ -20,6 +23,7 @@ export function useProfile() {
         const uploadRes = await fetch('/api/upload', {
           method: 'POST',
           body: formData,
+          credentials: 'include',
         });
         
         if (!uploadRes.ok) {
@@ -40,6 +44,7 @@ export function useProfile() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(profileData),
+        credentials: 'include',
         cache: 'no-store'
       });
       
@@ -53,6 +58,7 @@ export function useProfile() {
       // Force refresh the session
       await fetch('/api/auth/session', { 
         method: 'GET',
+        credentials: 'include',
         cache: 'no-store'
       });
       
@@ -65,26 +71,40 @@ export function useProfile() {
         },
       });
       
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
+      });
+      
       // Force router refresh to update UI components
-      window.location.href = window.location.href;
+      router.refresh();
       
       return updatedProfile;
     } catch (error: any) {
-      setError(error.message || 'An error occurred while updating the profile');
+      const errorMessage = error.message || 'An error occurred while updating the profile';
+      setError(errorMessage);
+      toast({
+        title: "Update failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
       throw error;
     } finally {
       setLoading(false);
     }
   };
   
-  const getProfile = async (userId?: string) => {
+  const getProfile = useCallback(async (userId?: string) => {
     try {
       setLoading(true);
       setError(null);
       
       const url = userId ? `/api/user/${userId}` : '/api/user/profile';
       
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        credentials: 'include',
+        cache: 'no-store'
+      });
       
       if (!res.ok) {
         const errorData = await res.json();
@@ -93,12 +113,13 @@ export function useProfile() {
       
       return await res.json();
     } catch (error: any) {
-      setError(error.message || 'An error occurred while fetching the profile');
+      const errorMessage = error.message || 'An error occurred while fetching the profile';
+      setError(errorMessage);
       throw error;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
   
   return {
     updateProfile,
