@@ -16,30 +16,21 @@ import { formatDistanceToNow } from "date-fns";
 
 
 // Use dynamic import with no SSR to prevent Firebase Auth errors during build
-const ChatPage = dynamic(() => import('@/components/chat/chat-page'), {
+const ChatPageComponent = dynamic(() => import('@/components/chat/chat-page'), {
   ssr: false,
-  loading: () => null,
+  loading: () => <div>Loading chat...</div>,
 });
 
 export default function Page() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <ChatPage />
-    </Suspense>
-  );
-}
-
-
-export default function ChatPage2() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedUserId = searchParams.get("userId");
-  
+
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // Fetch users for chat list
   useEffect(() => {
     const fetchUsers = async () => {
@@ -48,11 +39,11 @@ export default function ChatPage2() {
         // This would be replaced with a real API call to get conversations
         // For now, let's fetch a few sample users from the community
         const response = await fetch('/api/user/community');
-        
+
         if (!response.ok) {
           throw new Error("Failed to fetch users");
         }
-        
+
         const data = await response.json();
         setUsers(data.users || []);
       } catch (error) {
@@ -61,39 +52,39 @@ export default function ChatPage2() {
         setLoading(false);
       }
     };
-    
+
     if (status === "authenticated") {
       fetchUsers();
     }
   }, [status]);
-  
+
   // Redirect if not authenticated
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/sign-in");
     }
   }, [status, router]);
-  
+
   // Filter users based on search query
-  const filteredUsers = users.filter(user => 
+  const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  
+
   // Handle user selection
   const selectUser = (userId: string) => {
     router.push(`/chat?userId=${userId}`);
   };
-  
+
   // Show loading state while checking authentication
   if (status === "loading") {
     return null;
   }
-  
+
   // Don't render anything if not authenticated (will redirect)
   if (status === "unauthenticated") {
     return null;
   }
-  
+
   return (
     <AppShell>
       <div className="h-[calc(100vh-4rem)] flex">
@@ -103,7 +94,7 @@ export default function ChatPage2() {
             <h2 className="font-semibold text-lg mb-4">Messages</h2>
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
+              <Input
                 placeholder="Search conversations..."
                 className="pl-8"
                 value={searchQuery}
@@ -111,7 +102,7 @@ export default function ChatPage2() {
               />
             </div>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="p-4 space-y-4">
@@ -173,7 +164,7 @@ export default function ChatPage2() {
             )}
           </div>
         </div>
-        
+
         {/* Chat area */}
         <div className={`flex-1 ${!selectedUserId ? 'hidden md:flex' : 'flex'}`}>
           {selectedUserId ? (
