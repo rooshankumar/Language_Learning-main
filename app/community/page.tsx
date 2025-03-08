@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -11,7 +10,7 @@ import { Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, User } from "lucide-react";
+import { MessageCircle, User, ArrowLeft } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface UserData {
@@ -91,11 +90,11 @@ export default function CommunityPage() {
         const response = await fetch("/api/community/users", {
           cache: "no-store"
         });
-        
+
         if (!response.ok) {
           throw new Error("Failed to fetch users");
         }
-        
+
         const data = await response.json();
         setUsers(data);
         setFilteredUsers(data);
@@ -148,8 +147,18 @@ export default function CommunityPage() {
 
   return (
     <div className="container mx-auto py-6 px-4 md:px-6">
+      <div className="mb-4">
+        <Button 
+          variant="outline" 
+          onClick={() => router.push('/')}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Home
+        </Button>
+      </div>
       <h1 className="text-3xl font-bold mb-6">Community</h1>
-      
+
       <div className="relative mb-6">
         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
         <Input
@@ -165,7 +174,7 @@ export default function CommunityPage() {
           <TabsTrigger value="all">All Users</TabsTrigger>
           <TabsTrigger value="online">Online Now</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="all">
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -195,7 +204,7 @@ export default function CommunityPage() {
             </div>
           )}
         </TabsContent>
-        
+
         <TabsContent value="online">
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

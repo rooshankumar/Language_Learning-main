@@ -1,17 +1,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { v2 as cloudinary } from 'cloudinary';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { connectToDatabase } from '@/lib/mongodb';
 import User from '@/models/User';
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+import { v2 as cloudinary } from '@/utils/cloudinary';
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,9 +22,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'No file uploaded' }, { status: 400 });
     }
     
-    // Convert file to base64
+    // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());
-    const base64String = `data:${file.type};base64,${buffer.toString('base64')}`;
+    
+    // Convert to base64 for Cloudinary
+    const fileType = file.type;
+    const base64String = `data:${fileType};base64,${buffer.toString('base64')}`;
     
     // Upload to Cloudinary
     const result = await new Promise((resolve, reject) => {
@@ -56,7 +52,8 @@ export async function POST(req: NextRequest) {
       userId,
       { 
         profilePic: (result as any).secure_url,
-        photoURL: (result as any).secure_url // Update photoURL for consistency
+        photoURL: (result as any).secure_url, // Update photoURL for consistency
+        image: (result as any).secure_url, // Update image for consistency with NextAuth
       },
       { new: true }
     );
@@ -68,7 +65,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       message: 'Profile picture uploaded successfully',
       profilePic: (result as any).secure_url,
-      user: updatedUser
+      user: {
+        id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        profilePic: (result as any).secure_url
+      }
     });
     
   } catch (error) {
