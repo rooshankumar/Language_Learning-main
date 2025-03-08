@@ -107,8 +107,9 @@ export function AppSidebar() {
     <div
       data-state={state}
       className={cn(
-        "hidden md:block h-screen bg-sidebar text-sidebar-foreground transition-all duration-300",
+        "md:block h-screen bg-sidebar text-sidebar-foreground transition-all duration-300 shadow-lg",
         state === "expanded" ? "w-64" : "w-16",
+        "lg:w-64" // Always expanded on large screens
       )}
     >
       {sidebarContent}

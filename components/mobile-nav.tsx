@@ -16,8 +16,8 @@ export function MobileNav() {
   const { toggleSidebar } = useSidebar()
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-10 bg-background border-t shadow-lg md:hidden">
-      <div className="flex items-center justify-around p-3">
+    <div className="fixed bottom-0 left-0 right-0 z-30 bg-background border-t shadow-lg md:hidden">
+      <div className="flex items-center justify-around p-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/community">
             <Users className="h-6 w-6" />

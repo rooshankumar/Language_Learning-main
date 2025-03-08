@@ -38,7 +38,7 @@ export const SidebarProvider = React.forwardRef<
     open?: boolean
     onOpenChange?: (open: boolean) => void
   }
->(({ defaultOpen = true, open: openProp, onOpenChange: setOpenProp, className, style, children, ...props }, ref) => {
+>(({ defaultOpen = true, open: openProp = true, onOpenChange: setOpenProp, className, style, children, ...props }, ref) => {
   const [isMobile, setIsMobile] = React.useState(false)
   const [openMobile, setOpenMobile] = React.useState(false)
 

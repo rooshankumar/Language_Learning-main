@@ -39,8 +39,10 @@ export function AppShell({ children, requireAuth = true }: AppShellProps) {
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <SidebarProvider>
         <div className="flex h-full min-h-screen">
-          <AppSidebar />
-          <main className="flex-1 md:ml-16 transition-all duration-300">
+          <div className="fixed z-20 h-full">
+            <AppSidebar />
+          </div>
+          <main className="flex-1 md:ml-16 lg:ml-64 transition-all duration-300">
             <MobileNav />
             <div className="container py-6 pb-16 md:pb-6">
               {children}
