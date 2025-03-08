@@ -1,7 +1,7 @@
 
 import mongoose, { Schema, models, model } from 'mongoose';
 
-// Middleware to ensure image fields stay in sync for document (save)
+// Create user schema
 const userSchema = new Schema(
   {
     name: { type: String, required: true },
@@ -41,11 +41,12 @@ userSchema.pre('save', function(next) {
   next();
 });
 
-// For findOneAndUpdate operations
+// For findOneAndUpdate operations - fixing this middleware
 userSchema.pre('findOneAndUpdate', function(next) {
   const update = this.getUpdate();
   if (!update) return next();
   
+  // Sync profile image fields in the update
   if (update.profilePic) {
     update.image = update.profilePic;
     update.photoURL = update.profilePic;

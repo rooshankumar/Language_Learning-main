@@ -5,34 +5,48 @@ import { connectToDatabase } from '@/lib/mongodb';
 import User from '@/models/User';
 
 export async function PUT(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+
+  if (!session || !session.user?.email) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const userId = session.user.id;
-    const data = await req.json();
-
-    // Connect to the database
     await connectToDatabase();
 
-    // Update user profile using findByIdAndUpdate
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { ...data },
-      { new: true, runValidators: true }
+    const data = await req.json();
+    const userEmail = session.user.email;
+
+    // Update user profile - use updateOne instead of findOneAndUpdate
+    // This avoids the isModified middleware issues
+    const result = await User.updateOne(
+      { email: userEmail },
+      { $set: { ...data } }
     );
 
-    if (!updatedUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ message: 'Profile updated successfully', user: updatedUser });
+    // Fetch the updated user
+    const updatedUser = await User.findOne({ email: userEmail });
+
+    return NextResponse.json({ 
+      success: true, 
+      user: {
+        id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        bio: updatedUser.bio,
+        image: updatedUser.image,
+        profilePic: updatedUser.profilePic
+      } 
+    });
   } catch (error: any) {
-    console.error('Error updating profile:', error);
-    return NextResponse.json({ error: `Failed to update profile: ${error.message}` }, { status: 500 });
+    console.error("Error updating profile:", error);
+    return NextResponse.json({ 
+      error: `Error updating profile: ${error.message}` 
+    }, { status: 500 });
   }
 }
 
@@ -40,28 +54,28 @@ export async function GET(req: NextRequest) {
   try {
     // Get the user session
     const session = await getServerSession(authOptions);
-    
+
     if (!session || !session.user) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
-    
+
     // Connect to the database
     await connectToDatabase();
-    
+
     // Get user ID from session
     const userId = session.user.id || session.user._id;
-    
+
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return NextResponse.json({ message: 'Invalid user ID' }, { status: 400 });
     }
-    
+
     // Find the user
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
-    
+
     // Return user data
     return NextResponse.json({
       id: user._id,
@@ -77,7 +91,7 @@ export async function GET(req: NextRequest) {
       proficiency: user.proficiency,
       isOnboarded: user.isOnboarded,
     });
-    
+
   } catch (error) {
     console.error('Error fetching profile:', error);
     return NextResponse.json(
