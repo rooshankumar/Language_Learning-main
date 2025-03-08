@@ -18,6 +18,7 @@ const UserSchema = new Schema(
     lastSeen: { type: Date, default: Date.now },
     online: { type: Boolean, default: false },
     photoURL: { type: String, default: '/placeholder-user.jpg' }, // Added photoURL field
+    profilePic: { type: String, default: '/placeholder-user.jpg' }, // Cloudinary URL
   },
   { timestamps: true }
 );

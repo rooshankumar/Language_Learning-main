@@ -33,13 +33,14 @@ export function ImageUpload({ onImageUploaded }: { onImageUploaded?: (url: strin
       // Convert image to base64
       const base64 = await convertToBase64(file);
       
+      // Create a FormData object
+      const formData = new FormData();
+      formData.append('profilePic', file);
+      
       // Upload to server
-      const response = await fetch('/api/upload', {
+      const response = await fetch('/api/users/upload-profile', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ image: base64 }),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -88,7 +89,7 @@ export function ImageUpload({ onImageUploaded }: { onImageUploaded?: (url: strin
   return (
     <div className="flex flex-col items-center gap-4">
       <Avatar className="h-24 w-24">
-        <AvatarImage src={user?.photoURL || '/placeholder-user.jpg'} alt="Profile" />
+        <AvatarImage src={user?.profilePic || user?.photoURL || '/placeholder-user.jpg'} alt="Profile" />
         <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
       </Avatar>
       
