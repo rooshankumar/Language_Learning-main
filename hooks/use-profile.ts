@@ -9,6 +9,7 @@ interface ProfileData {
   bio?: string;
   age?: number;
   nativeLanguage?: string;
+  learningLanguage?: string;
   learningLanguages?: string[];
   interests?: string[];
 }

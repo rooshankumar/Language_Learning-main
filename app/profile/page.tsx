@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -48,20 +47,19 @@ export default function ProfilePage() {
   }
 
   return (
-    <SectionLayout 
-      title="My Profile" 
-      description="View and manage your profile information" 
-      showAvatar={true}
+    <SectionLayout
+      title="Your Profile"
+      description="Manage your profile information"
     >
       {userData ? (
-        <div className="space-y-8">
+        <>
           <ProfileDashboard user={userData} />
-          <div className="flex justify-end">
+          <div className="flex justify-end mt-4"> {/* Added spacing */}
             <Button onClick={() => router.push('/profile/edit')}>
               Edit Profile
             </Button>
           </div>
-        </div>
+        </>
       ) : (
         <div className="text-center py-8">
           <p>Could not load profile data. Please try again later.</p>

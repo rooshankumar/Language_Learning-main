@@ -1,17 +1,17 @@
-import { NextResponse, NextRequest } from 'next/server';
+
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import User from '@/models/User';
 import { connectToDatabase } from '@/lib/mongoose';
+import User from '@/models/User';
 
-// GET /api/user/profile - Get current user profile
 export async function GET(req: NextRequest) {
   try {
     await connectToDatabase();
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await User.findOne({ email: session.user.email });
@@ -23,28 +23,38 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ user });
   } catch (error) {
     console.error('Error getting profile:', error);
-    return NextResponse.json({ error: 'Failed to get profile' }, { status: 500 });
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
 
-// PATCH /api/user/profile - Update user profile
-//This route is removed from the edited code.  Leaving it out for now.
-
-// PUT /api/user/profile - Legacy API for compatibility
 export async function PUT(req: NextRequest) {
   try {
     await connectToDatabase();
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const data = await req.json();
+    
+    const updates = {
+      ...(data.name && { name: data.name }),
+      ...(data.displayName && { displayName: data.displayName }),
+      ...(data.bio !== undefined && { bio: data.bio }),
+      ...(data.age !== undefined && { age: data.age }),
+      ...(data.nativeLanguage !== undefined && { nativeLanguage: data.nativeLanguage }),
+      ...(data.learningLanguage !== undefined && { learningLanguage: data.learningLanguage }),
+      ...(data.learningLanguages !== undefined && { learningLanguages: data.learningLanguages }),
+      ...(data.interests !== undefined && { interests: data.interests }),
+      ...(data.profilePicture !== undefined && { profilePicture: data.profilePicture }),
+    };
+
+    // Find user by email from the session
     const user = await User.findOneAndUpdate(
       { email: session.user.email },
-      { $set: data },
-      { new: true }
+      { $set: updates },
+      { new: true, runValidators: true }
     );
 
     if (!user) {
@@ -54,6 +64,6 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ user });
   } catch (error) {
     console.error('Error updating profile:', error);
-    return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
