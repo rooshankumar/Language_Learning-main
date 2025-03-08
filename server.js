@@ -1,97 +1,84 @@
-const { createServer } = require('http');
-const { parse } = require('url');
+const express = require('express');
 const next = require('next');
-const mongoose = require('mongoose');
+const http = require('http');
 const { Server } = require('socket.io');
+const cors = require('cors');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 const dev = process.env.NODE_ENV !== 'production';
-const app = next({ dev });
+const hostname = '0.0.0.0';
+const port = process.env.PORT || 3000;
+
+// Initialize Next.js
+const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-const PORT = process.env.PORT || 3000;
-const hostname = '0.0.0.0'; // Enable external access
+app.prepare().then(() => {
+  const server = express();
+  const httpServer = http.createServer(server);
 
-// Connect to MongoDB before starting the server
-async function startServer() {
-  try {
-    // Connect to MongoDB if MONGODB_URI is defined
-    if (process.env.MONGODB_URI) {
-      await mongoose.connect(process.env.MONGODB_URI);
-      console.log('✅ MongoDB connected successfully');
-    } else {
-      console.warn('⚠️ MONGODB_URI not defined, skipping MongoDB connection');
+  // Set up Socket.IO with CORS
+  const io = new Server(httpServer, {
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST'],
+      credentials: true
     }
+  });
 
-    await app.prepare();
+  // Apply middleware
+  server.use(cors());
+  server.use(express.json({ limit: '2mb' }));
 
-    const server = createServer((req, res) => {
-      const parsedUrl = parse(req.url, true);
-      handle(req, res, parsedUrl);
-    }).listen(PORT, hostname, (err) => {
-      if (err) throw err;
-      console.log(`> Ready on http://${hostname}:${PORT}`);
-    });
-
-    // Initialize Socket.io
-    const io = new Server(server, {
-      cors: {
-        origin: '*',
-        methods: ['GET', 'POST'],
-      },
-    });
-
-    // Store online users
-    const onlineUsers = new Map();
-
-    io.on('connection', (socket) => {
-      console.log('New client connected:', socket.id);
-
-      // Handle user joining
-      socket.on('join', (userData) => {
-        if (userData && userData.userId) {
-          onlineUsers.set(userData.userId, {
-            socketId: socket.id,
-            username: userData.username || 'Unknown User',
-          });
-
-          io.emit('userList', Array.from(onlineUsers.entries()).map(([userId, data]) => ({
-            id: userId,
-            name: data.username
-          })));
-
-          console.log('User joined:', userData.userId);
-        }
-      });
-
-      // Handle joining a specific room or chat
-      socket.on('joinRoom', (roomId) => {
-        socket.join(roomId);
-        console.log(`Socket ${socket.id} joined room ${roomId}`);
-      });
-
-      // Handle disconnect
-      socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
-        // Remove user from online users
-        for (const [userId, data] of onlineUsers.entries()) {
-          if (data.socketId === socket.id) {
-            onlineUsers.delete(userId);
-            break;
-          }
-        }
-
-        // Broadcast updated user list
-        io.emit('userList', Array.from(onlineUsers.entries()).map(([userId, data]) => ({
-          id: userId,
-          name: data.username
-        })));
-      });
-    });
-  } catch (error) {
-    console.error('❌ Server startup error:', error);
-    process.exit(1);
+  // Connect to MongoDB before starting the server
+  async function connectToMongoDB() {
+    try {
+      // Connect to MongoDB if MONGODB_URI is defined
+      if (process.env.MONGODB_URI) {
+        await mongoose.connect(process.env.MONGODB_URI);
+        console.log('✅ MongoDB connected successfully');
+      } else {
+        console.warn('⚠️ MONGODB_URI not defined, skipping MongoDB connection');
+      }
+    } catch (error) {
+      console.error('❌ MongoDB connection error:', error);
+      process.exit(1); // Exit if MongoDB connection fails
+    }
   }
-}
+  connectToMongoDB();
 
-startServer();
+
+  // Socket.IO connection handler
+  io.on('connection', (socket) => {
+    console.log('A user connected:', socket.id);
+
+    socket.on('join-chat', (chatId) => {
+      socket.join(chatId);
+      console.log(`User ${socket.id} joined chat: ${chatId}`);
+    });
+
+    socket.on('leave-chat', (chatId) => {
+      socket.leave(chatId);
+      console.log(`User ${socket.id} left chat: ${chatId}`);
+    });
+
+    socket.on('send-message', (data) => {
+      io.to(data.chatId).emit('receive-message', data);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('User disconnected:', socket.id);
+    });
+  });
+
+  // Let Next.js handle all other routes
+  server.all('*', (req, res) => {
+    return handle(req, res);
+  });
+
+  // Start server
+  httpServer.listen(port, hostname, () => {
+    console.log(`> Ready on http://${hostname}:${port}`);
+  });
+});

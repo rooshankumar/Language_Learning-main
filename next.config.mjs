@@ -18,8 +18,6 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   // Server settings
   experimental: {
-    // Enable app directory
-    appDir: true,
     // Enable server actions
     serverActions: {
       bodySizeLimit: '2mb',

@@ -1,4 +1,3 @@
-
 'use server';
 
 import clientPromise from '@/lib/mongodb';
@@ -145,7 +144,7 @@ export async function markMessagesAsRead(chatId: string, userId: string) {
   try {
     const client = await clientPromise;
     const db = client.db();
-    
+
     const chatIdObj = typeof chatId === 'string' ? new ObjectId(chatId) : chatId;
     const userIdObj = typeof userId === 'string' ? new ObjectId(userId) : userId;
 
@@ -169,4 +168,16 @@ export async function markMessagesAsRead(chatId: string, userId: string) {
     console.error("Error marking messages as read:", error);
     return { success: false, error: 'Failed to mark messages as read' };
   }
+}
+
+// Since we're using MongoDB and not Firebase, we don't need real-time subscriptions
+// This is a placeholder that returns a cleanup function
+export async function subscribeToChatMessages(chatId: string, callback: Function) {
+  // In a real implementation, you might use WebSockets or Server-Sent Events here
+  console.log("Subscription to chat messages is not implemented with MongoDB");
+
+  // Return a cleanup function
+  return () => {
+    console.log("Cleaning up chat subscription");
+  };
 }

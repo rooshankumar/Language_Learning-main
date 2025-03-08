@@ -13,6 +13,12 @@ if (typeof window === 'undefined') {
 const uri = process.env.MONGODB_URI;
 const options = {
   maxPoolSize: 10,
+  minPoolSize: 5,
+  connectTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+};
+const options = {
+  maxPoolSize: 10,
   serverSelectionTimeoutMS: 5000,
   socketTimeoutMS: 45000,
 };
