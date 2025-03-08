@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { v2 as cloudinary } from "cloudinary";
+import { NextRequest, NextResponse } from 'next/server';
+import { v2 as cloudinary } from 'cloudinary';
+import { connectToDatabase } from '@/lib/mongoose';
+import User from '@/models/User';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -12,56 +13,51 @@ cloudinary.config({
 
 export async function POST(req: NextRequest) {
   try {
-    // Check authentication
+    await connectToDatabase();
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    // Parse form data with file
     const formData = await req.formData();
-    const file = formData.get("file") as File | null;
+    const file = formData.get('file') as File;
 
     if (!file) {
-      return NextResponse.json({ message: "No file provided" }, { status: 400 });
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    // Convert file to buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Get base64 encoded string
-    const base64Data = buffer.toString('base64');
-    const dataURI = `data:${file.type};base64,${base64Data}`;
+    // Convert buffer to base64
+    const base64String = buffer.toString('base64');
+    const dataURI = `data:${file.type};base64,${base64String}`;
 
     // Upload to Cloudinary
-    const result = await new Promise((resolve, reject) => {
-      cloudinary.uploader.upload(
-        dataURI,
-        {
-          folder: "profile_pictures",
-          resource_type: "auto",
-          // Generate a unique public_id for the image
-          public_id: `user_${session.user.id || session.user.email}_${Date.now()}`,
-        },
-        (error, result) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve(result);
-          }
-        }
-      );
+    const uploadResult = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload(dataURI, {
+        folder: 'user_profiles',
+      }, (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      });
     });
 
-    // Return the URL of the uploaded image
-    return NextResponse.json({
-      message: "File uploaded successfully",
-      imageUrl: (result as any).secure_url,
+    // Update user's profile picture URL in database
+    const user = await User.findOneAndUpdate(
+      { email: session.user.email },
+      { $set: { profilePicture: (uploadResult as any).secure_url } },
+      { new: true }
+    );
+
+    return NextResponse.json({ 
+      url: (uploadResult as any).secure_url,
+      user
     });
-  } catch (error: any) {
-    console.error("Upload error:", error);
-    return NextResponse.json({ message: error.message || "Upload failed" }, { status: 500 });
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
   }
 }
 
