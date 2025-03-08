@@ -59,3 +59,34 @@ export async function GET() {
     );
   }
 }
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { connectToDatabase } from "@/lib/mongoose";
+import Chat from "@/models/Chat";
+
+export async function GET() {
+  const session = await getServerSession(authOptions);
+  
+  if (!session || !session.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  try {
+    await connectToDatabase();
+    
+    const userId = session.user.id;
+    const chats = await Chat.find({ 
+      participants: userId 
+    })
+    .populate('participants', 'displayName photoURL')
+    .populate('lastMessage.sender', 'displayName')
+    .sort({ updatedAt: -1 })
+    .lean();
+    
+    return NextResponse.json(chats);
+  } catch (error) {
+    console.error("Error fetching chats:", error);
+    return NextResponse.json({ error: "Failed to fetch chats" }, { status: 500 });
+  }
+}

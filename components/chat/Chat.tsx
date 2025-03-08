@@ -1,91 +1,68 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AppShell } from "@/components/app-shell";
-import { Card, CardContent } from "@/components/ui/card";
-import { useAuth } from "@/contexts/auth-context";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
 
 export function Chat() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
-  const [chats, setChats] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [chats, setChats] = useState([]);
 
   useEffect(() => {
-    // Check authentication
-    if (!loading && !user) {
-      router.push("/sign-in");
-      return;
-    }
+    // Client-side data fetching
+    const fetchChats = async () => {
+      try {
+        const response = await fetch("/api/chats");
+        if (response.ok) {
+          const data = await response.json();
+          setChats(data);
+        }
+      } catch (error) {
+        console.error("Error fetching chats:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    // Fetch chats only when we have a user
     if (user) {
       fetchChats();
+    } else {
+      setIsLoading(false);
     }
-  }, [user, loading, router]);
+  }, [user]);
 
-  const fetchChats = () => {
-    setIsLoading(true);
-    // Implement your data fetching logic here
-    // For example:
-    fetch("/api/chats")
-      .then((res) => res.json())
-      .then((data) => {
-        setChats(data);
-        setIsLoading(false);
-      })
-      .catch((error) => {
-        console.error("Error fetching chats:", error);
-        setIsLoading(false);
-      });
-  };
-
-  if (loading) {
-    return (
-      <AppShell>
-        <div className="flex items-center justify-center h-full">
-          <div className="animate-pulse">Loading...</div>
-        </div>
-      </AppShell>
-    );
+  if (isLoading) {
+    return <div>Loading chat...</div>;
   }
 
   return (
-    <AppShell>
-      <div className="container mx-auto py-6">
-        <h1 className="text-2xl font-bold mb-6">Your Conversations</h1>
-
-        {isLoading ? (
-          <div className="animate-pulse">Loading chats...</div>
-        ) : chats.length > 0 ? (
-          <div className="grid gap-4">
-            {chats.map((chat) => (
-              <Card key={chat.id} className="cursor-pointer hover:bg-muted/50">
-                <CardContent className="p-4">
-                  <div className="font-medium">{chat.name || "Chat"}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {chat.lastMessage?.text || "No messages yet"}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-10">
-            <p className="text-muted-foreground">No conversations yet</p>
-            <button 
-              className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md"
-              onClick={() => {
-                // Implement chat creation logic
-                router.push("/community");
-              }}
-            >
-              Find someone to chat with
-            </button>
-          </div>
-        )}
-      </div>
-    </AppShell>
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Your Conversations</h1>
+      {chats.length === 0 ? (
+        <div className="text-center py-10">
+          <p className="text-gray-500">No conversations yet</p>
+          <button 
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            onClick={() => router.push("/community")}
+          >
+            Find people to chat with
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {chats.map((chat) => (
+            <div key={chat._id} className="border p-4 rounded-lg">
+              {/* Chat preview content */}
+              <h3 className="font-medium">{chat.participants.map(p => p.displayName).join(", ")}</h3>
+              <p className="text-gray-500 text-sm mt-1">
+                {chat.lastMessage?.text || "No messages yet"}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
