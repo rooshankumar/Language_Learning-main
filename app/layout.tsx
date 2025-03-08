@@ -22,30 +22,3 @@ export default async function RootLayout({ children }) {
     </html>
   );
 }
-
-// auth-context.tsx (Assumed file;  Adjust path if necessary)
-import React, { createContext, useContext, useState, useEffect } from 'react'; // Added useContext import
-
-const AuthContext = createContext();
-
-export const AuthProvider = ({ children, session }) => {
-  const [user, setUser] = useState(session?.user || null);
-
-  useEffect(() => {
-    setUser(session?.user || null);
-  }, [session]);
-
-  return (
-    <AuthContext.Provider value={{ user, setUser }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext); // Now useContext is defined
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
