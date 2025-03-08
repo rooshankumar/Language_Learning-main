@@ -52,9 +52,8 @@ export function AppSidebar() {
       <Separator className="bg-sidebar-border" />
       <div className="flex-1 overflow-auto py-2">
         <nav className="grid gap-1 px-2">
-          <NavItem href="/" icon={Home} label="Dashboard" />
-          <NavItem href="/chat" icon={MessageCircle} label="Chat" />
           <NavItem href="/community" icon={Users} label="Community" />
+          <NavItem href="/chat" icon={MessageCircle} label="Chat" />
           <NavItem href="/progress" icon={LineChart} label="Progress" />
           <NavItem href="/resources" icon={BookOpen} label="Resources" />
           <NavItem href="/blog" icon={BookMarked} label="Blog" />

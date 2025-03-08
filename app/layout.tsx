@@ -7,9 +7,20 @@ import { authOptions } from "@/lib/auth";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Language Learning App",
+  title: "LinguaConnect",
   description: "Connect with language learners around the world",
 };
+
+// This will redirect from the root to the community page
+export const dynamic = "force-dynamic";
+export async function generateMetadata() {
+  return {
+    refresh: {
+      httpEquiv: "refresh",
+      content: "0;url=/community",
+    },
+  };
+}
 
 export default async function RootLayout({ children }) {
   const session = await getServerSession(authOptions);
