@@ -1,86 +1,129 @@
 
-import React from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+"use client"
 
-export function ProfileDashboard({ user = null }) {
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle>Profile Overview</CardTitle>
-          <CardDescription>
-            View and manage your profile information
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <Avatar className="h-16 w-16">
-              <AvatarImage src={user?.image || "/placeholder-user.jpg"} alt="Profile" />
-              <AvatarFallback>{user?.name?.charAt(0) || "U"}</AvatarFallback>
-            </Avatar>
-            <div className="space-y-1">
-              <h3 className="font-medium text-lg">{user?.name || "User"}</h3>
-              <p className="text-sm text-muted-foreground">{user?.email || "user@example.com"}</p>
-              <div className="flex flex-wrap gap-2 mt-2">
-                <Badge variant="outline">Member</Badge>
-                {user?.isOnboarded && <Badge>Onboarded</Badge>}
-              </div>
-            </div>
-            <div className="ml-auto mt-2 sm:mt-0">
-              <Button variant="outline" size="sm">Edit Profile</Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+import { useState } from 'react'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/contexts/auth-context"
+import { ImageUpload } from "@/components/profile/image-upload"
+
+export function ProfileDashboard() {
+  const { user, updateUser } = useAuth()
+  const { toast } = useToast()
+  const [isLoading, setIsLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    displayName: user?.displayName || '',
+    bio: user?.bio || '',
+  })
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!formData.displayName.trim()) {
+      toast({
+        title: "Name is required",
+        description: "Please enter your display name",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    try {
+      setIsLoading(true)
       
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Activity Stats</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Messages Sent</span>
-                <span className="font-medium">124</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Days Active</span>
-                <span className="font-medium">37</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Connections</span>
-                <span className="font-medium">18</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      const response = await fetch('/api/profile/update', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          displayName: formData.displayName,
+          bio: formData.bio,
+        }),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to update profile')
+      }
+      
+      const data = await response.json()
+      
+      // Update user in context
+      if (updateUser) {
+        updateUser({
+          ...user,
+          displayName: formData.displayName,
+          bio: formData.bio,
+        })
+      }
+      
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully"
+      })
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      toast({
+        title: "Update failed",
+        description: "There was a problem updating your profile",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle>Profile</CardTitle>
+        <CardDescription>
+          Manage your profile information
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-6">
+          <ImageUpload />
+        </div>
         
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Recent Connections</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm">
-              {!user ? (
-                <p className="text-muted-foreground italic">No recent connections</p>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>JD</AvatarFallback>
-                    </Avatar>
-                    <div>John Doe</div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="displayName">Display Name</Label>
+            <Input
+              id="displayName"
+              name="displayName"
+              value={formData.displayName}
+              onChange={handleChange}
+              placeholder="Your name"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="bio">Bio</Label>
+            <Textarea
+              id="bio"
+              name="bio"
+              value={formData.bio}
+              onChange={handleChange}
+              placeholder="Tell us about yourself"
+              rows={4}
+            />
+          </div>
+          
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   )
 }

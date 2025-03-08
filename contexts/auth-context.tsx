@@ -5,16 +5,25 @@ import { Session } from "next-auth";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
+interface UserData {
+  id: string;
+  displayName: string;
+  email: string;
+  photoURL?: string;
+  bio?: string;
+}
+
 type AuthContextType = {
   session: Session | null;
   status: "loading" | "authenticated" | "unauthenticated";
-  user: any;
+  user: UserData | null;
   signIn: (provider: string, options?: any) => Promise<any>;
   signOut: () => Promise<any>;
   updateSession: () => Promise<void>;
   isOnboarded: boolean;
   loading: boolean;
-  updateUserProfile: (profileData: any) => Promise<void>; // Added from original code
+  updateUserProfile: (profileData: any) => Promise<void>;
+  updateUser: (userData: UserData) => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,24 +32,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const { data: session, status, update } = useSession();
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<UserData | null>(null); //Added to manage user data
+
 
   const updateSession = useCallback(async () => {
     try {
       setLoading(true);
       await update();
+      setUser(session?.user); // Update user state after session update
     } catch (error) {
       console.error("Error updating session:", error);
     } finally {
       setLoading(false);
     }
-  }, [update]);
+  }, [update, session]);
 
   useEffect(() => {
     // After initial load, set loading to false
     if (status !== "loading") {
       setLoading(false);
+      setUser(session?.user); //Set user state on initial load
     }
-  }, [status]);
+  }, [status, session]);
 
   const updateUserProfile = async (profileData: any) => {
     try {
@@ -82,26 +95,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error(errorData.message || 'Failed to update profile');
       }
 
-      // Update the session -  This part is already handled by next-auth's update()
-      // const updatedSession = { ...session, user: { ...session?.user, ...profileData } };
-
-      // Force a refresh of the session - This is also handled implicitly by next-auth
-      // await fetch('/api/auth/session', { method: 'GET' });
-
       await updateSession(); // Use updateSession to refresh after profile update.
       return await res.json();
     } catch (error: any) {
       console.error("Profile update error:", error);
-      // setError(error.message); // No setError in this context.  Error handling should be done by the caller.
       throw error;
     }
   };
 
+  const updateUser = (userData: UserData) => {
+    setUser(userData);
+  };
 
   const value = {
     session,
     status,
-    user: session?.user || null,
+    user,
     signIn,
     signOut: async () => {
       await signOut({ redirect: false });
@@ -110,7 +119,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     updateSession,
     isOnboarded: !!session?.user?.isOnboarded,
     loading: status === "loading" || loading,
-    updateUserProfile, // Added from original code
+    updateUserProfile,
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

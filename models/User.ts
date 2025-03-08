@@ -1,4 +1,3 @@
-
 import mongoose, { Schema, models, model } from 'mongoose';
 
 const UserSchema = new Schema(
@@ -18,6 +17,7 @@ const UserSchema = new Schema(
     isOnboarded: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now },
     online: { type: Boolean, default: false },
+    photoURL: { type: String, default: '/placeholder-user.jpg' }, // Added photoURL field
   },
   { timestamps: true }
 );

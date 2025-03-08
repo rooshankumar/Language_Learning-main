@@ -199,3 +199,45 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { uploadImage } from '@/lib/cloudinary';
+import { connectToDatabase } from '@/lib/mongoose';
+import User from '@/models/User';
+
+export async function POST(req: NextRequest) {
+  try {
+    // Check authentication
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get the data from the request
+    const data = await req.json();
+    const { image } = data;
+
+    if (!image) {
+      return NextResponse.json({ error: 'No image provided' }, { status: 400 });
+    }
+
+    // Upload image to Cloudinary
+    const imageUrl = await uploadImage(image);
+
+    // Connect to database and update user profile
+    await connectToDatabase();
+    
+    // Update the user's profile with the new image URL
+    const userId = session.user.id;
+    await User.findByIdAndUpdate(userId, { photoURL: imageUrl });
+
+    return NextResponse.json({ 
+      success: true, 
+      imageUrl 
+    });
+  } catch (error) {
+    console.error('Error in upload API:', error);
+    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+  }
+}
