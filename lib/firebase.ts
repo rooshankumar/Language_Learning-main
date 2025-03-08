@@ -5,17 +5,63 @@
 import { connectToDatabase } from './mongoose';
 import User from '../models/User';
 
-// Mock auth for backward compatibility
+// Mock auth for backward compatibility during migration
+import { getSession, signOut as nextAuthSignOut } from 'next-auth/react';
+
 export const auth = {
   currentUser: null,
   onAuthStateChanged: (callback: any) => {
+    // This will check for NextAuth session and provide backward compatibility
+    const checkSession = async () => {
+      const session = await getSession();
+      if (session?.user) {
+        auth.currentUser = {
+          uid: session.user.id,
+          email: session.user.email,
+          displayName: session.user.name,
+          photoURL: session.user.image,
+          ...session.user
+        };
+        callback(auth.currentUser);
+      } else {
+        auth.currentUser = null;
+        callback(null);
+      }
+    };
+    
+    // Initial check
+    checkSession();
+    
+    // We can't really replicate the Firebase real-time updates here,
+    // but we can check the session periodically
+    const interval = setInterval(checkSession, 5000);
+    
     // Return an unsubscribe function
-    return () => {};
+    return () => {
+      clearInterval(interval);
+    };
   },
   signOut: async () => {
-    console.log("Auth mock: signOut called");
-    return Promise.resolve();
+    console.log("Auth mock: signOut called, redirecting to NextAuth signOut");
+    return nextAuthSignOut({ callbackUrl: '/sign-in' });
   },
+  // Add basic firebase auth methods for compatibility
+  signInWithEmailAndPassword: async (email: string, password: string) => {
+    console.log("Auth mock: signInWithEmailAndPassword called");
+    // This should never be called directly, but if it is, redirect to NextAuth
+    window.location.href = `/api/auth/signin?email=${encodeURIComponent(email)}`;
+    return Promise.resolve({
+      user: { email, uid: 'mock-uid' }
+    });
+  },
+  createUserWithEmailAndPassword: async (email: string, password: string) => {
+    console.log("Auth mock: createUserWithEmailAndPassword called");
+    // Redirect to registration page or API
+    window.location.href = `/api/auth/signup?email=${encodeURIComponent(email)}`;
+    return Promise.resolve({
+      user: { email, uid: 'mock-uid' }
+    });
+  }
 };
 
 // Mock db for backward compatibility

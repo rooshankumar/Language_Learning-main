@@ -42,6 +42,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(session?.user); // Update user state after session update
     } catch (error) {
       console.error("Error updating session:", error);
+      // Notify the user about session update failure
+      setUser(null); // Reset user state if session update fails
     } finally {
       setLoading(false);
     }

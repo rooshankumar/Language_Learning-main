@@ -28,15 +28,19 @@ export function useAuthHook() {
           throw new Error(result.error);
         }
         
-        // Redirect based on whether user has completed onboarding
-        router.push(user?.isOnboarded ? '/' : '/onboarding');
+        if (result?.ok) {
+          // Redirect based on whether user has completed onboarding
+          router.push(session?.user?.isOnboarded ? '/' : '/onboarding');
+          return result;
+        }
       } else {
         // OAuth providers
-        await nextAuthSignIn(provider, { callbackUrl: '/' });
+        return await nextAuthSignIn(provider, { callbackUrl: '/' });
       }
     } catch (error: any) {
-      setError(error.message || 'An error occurred during sign in.');
-      throw error;
+      const errorMessage = error.message || 'An error occurred during sign in.';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
   };
   
@@ -60,17 +64,16 @@ export function useAuthHook() {
       const data = await res.json();
       
       if (!res.ok) {
-        setError(data.message);
-        throw new Error(data.message);
+        setError(data.message || 'Registration failed');
+        throw new Error(data.message || 'Registration failed');
       }
       
       // Auto sign in after registration
-      await signIn('credentials', { email, password });
-      
-      router.push('/onboarding');
+      return await signIn('credentials', { email, password });
     } catch (error: any) {
-      setError(error.message || 'An error occurred during registration.');
-      throw error;
+      const errorMessage = error.message || 'An error occurred during registration.';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
   };
   
@@ -79,8 +82,9 @@ export function useAuthHook() {
     try {
       await nextAuthSignOut({ callbackUrl: '/sign-in' });
     } catch (error: any) {
-      setError(error.message || 'An error occurred during sign out.');
-      throw error;
+      const errorMessage = error.message || 'An error occurred during sign out.';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
   };
   
@@ -100,14 +104,15 @@ export function useAuthHook() {
       const data = await res.json();
       
       if (!res.ok) {
-        setError(data.message);
-        throw new Error(data.message);
+        setError(data.message || 'Password reset failed');
+        throw new Error(data.message || 'Password reset failed');
       }
       
       return data;
     } catch (error: any) {
-      setError(error.message || 'An error occurred when resetting password.');
-      throw error;
+      const errorMessage = error.message || 'An error occurred when resetting password.';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
   };
   
