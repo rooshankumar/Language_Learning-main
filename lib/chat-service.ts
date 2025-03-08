@@ -123,7 +123,6 @@ export async function createChat(currentUserId: string, otherUserId: string) {
       messages: [],
       lastMessage: null,
       createdBy: currentUserObjectId,
-      createdAt: new Date(),
 
 export async function getChatById(chatId: string) {
   try {
@@ -146,6 +145,7 @@ export async function getChatById(chatId: string) {
   }
 }
 
+      createdAt: new Date(),
       updatedAt: new Date()
     };
 
