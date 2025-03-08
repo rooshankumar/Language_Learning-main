@@ -1,3 +1,4 @@
+
 import { connectToDatabase } from '@/lib/mongoose';
 import Chat from '@/models/Chat';
 import User from '@/models/User';
@@ -118,9 +119,8 @@ export async function sendMessage(chatId: string, userId: string, text: string) 
   }
 }
 
-
 // Function to mark all messages in a chat as read
-export const markMessagesAsRead = async (chatId: string, userId: string) => {
+export async function markMessagesAsRead(chatId: string, userId: string) {
   try {
     const chat = await Chat.findById(chatId);
     if (!chat) return false;
@@ -141,11 +141,11 @@ export const markMessagesAsRead = async (chatId: string, userId: string) => {
     console.error("Error marking messages as read:", error);
     return false;
   }
-};
+}
 
 // Since we're using MongoDB and not Firebase, we don't need real-time subscriptions
 // This is a placeholder that returns a cleanup function
-export const subscribeToChatMessages = (chatId: string, callback: Function) => {
+export function subscribeToChatMessages(chatId: string, callback: Function) {
   // In a real implementation, you might use WebSockets or Server-Sent Events here
   console.log("Subscription to chat messages is not implemented with MongoDB");
 
@@ -153,13 +153,4 @@ export const subscribeToChatMessages = (chatId: string, callback: Function) => {
   return () => {
     console.log("Cleaning up chat subscription");
   };
-};
-
-export { 
-  createChat,
-  sendMessage,
-  getUserChats,
-  getChatById,
-  markMessagesAsRead,
-  subscribeToChatMessages
-};
+}
