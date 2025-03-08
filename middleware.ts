@@ -4,45 +4,47 @@ import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
 // Auth routes that don't require authentication
-const authRoutes = ['/sign-in', '/sign-up', '/verify-email', '/reset-password'];
+const publicRoutes = ['/sign-in', '/sign-up', '/verify-email', '/reset-password'];
 
 // Routes that require authentication
-const protectedRoutes = ['/chat', '/profile', '/settings', '/community', '/onboarding'];
+const protectedRoutes = [
+  '/profile',
+  '/chat',
+  '/community',
+  '/settings',
+  '/onboarding',
+  '/dashboard'
+];
 
 export async function middleware(request: NextRequest) {
-  const token = await getToken({ 
+  const { pathname } = request.nextUrl;
+  
+  // Check if the pathname is a protected route
+  const isProtectedRoute = protectedRoutes.some(route => 
+    pathname.startsWith(route)
+  );
+  
+  // Check if the pathname is a public route (auth routes)
+  const isPublicRoute = publicRoutes.some(route => 
+    pathname.startsWith(route)
+  );
+
+  // Get the token from the request
+  const token = await getToken({
     req: request,
-    secret: process.env.NEXTAUTH_SECRET
+    secret: process.env.NEXTAUTH_SECRET,
   });
-  
-  const isAuthenticated = !!token;
-  const path = request.nextUrl.pathname;
-  
-  // Skip middleware for API and static routes
-  if (path.startsWith('/api') || 
-      path.startsWith('/_next') || 
-      path.includes('.')) {
-    return NextResponse.next();
+
+  // Redirect logic
+  if (isProtectedRoute && !token) {
+    // If trying to access a protected route without being authenticated
+    const url = new URL('/sign-in', request.url);
+    url.searchParams.set('callbackUrl', encodeURI(request.url));
+    return NextResponse.redirect(url);
   }
 
-  // If the user is authenticated and trying to access an auth route, redirect to home
-  if (isAuthenticated && authRoutes.some(route => path.startsWith(route))) {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-
-  // If the user is not authenticated and trying to access a protected route, redirect to sign-in
-  if (!isAuthenticated && protectedRoutes.some(route => path.startsWith(route))) {
-    return NextResponse.redirect(new URL('/sign-in', request.url));
-  }
-
-  // If authenticated but not onboarded trying to access any route except onboarding, redirect to onboarding
-  if (isAuthenticated && token?.user && !token.user.isOnboarded && 
-      path !== '/onboarding' && !path.startsWith('/api/')) {
-    return NextResponse.redirect(new URL('/onboarding', request.url));
-  }
-
-  // If authenticated and onboarded trying to access onboarding, redirect to home
-  if (isAuthenticated && token?.user && token.user.isOnboarded && path === '/onboarding') {
+  if (isPublicRoute && token) {
+    // If trying to access login/signup pages while already authenticated
     return NextResponse.redirect(new URL('/', request.url));
   }
 
@@ -51,6 +53,14 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    /*
+     * Match all request paths except:
+     * 1. /api routes
+     * 2. /_next (Next.js internals)
+     * 3. /_static (Replit static assets)
+     * 4. /favicon.ico, /robots.txt (SEO)
+     * 5. /public files (public assets)
+     */
+    '/((?!api|_next|_static|favicon.ico|robots.txt|.*\\.(?:jpg|jpeg|png|gif|svg|css|js)).*)',
   ],
 };

@@ -3,21 +3,26 @@
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/auth-context";
+import { SessionProvider } from "next-auth/react";
 import { SidebarProvider } from "@/components/sidebar-provider";
-import { SessionProvider } from 'next-auth/react';
 import { Toaster } from "@/components/ui/toaster";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children, session }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-      <SessionProvider>
-        <AuthProvider>
+    <SessionProvider session={session}>
+      <AuthProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           <SidebarProvider>
             {children}
             <Toaster />
           </SidebarProvider>
-        </AuthProvider>
-      </SessionProvider>
-    </ThemeProvider>
+        </ThemeProvider>
+      </AuthProvider>
+    </SessionProvider>
   );
 }
