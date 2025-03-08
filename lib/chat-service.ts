@@ -124,6 +124,28 @@ export async function createChat(currentUserId: string, otherUserId: string) {
       lastMessage: null,
       createdBy: currentUserObjectId,
       createdAt: new Date(),
+
+export async function getChatById(chatId: string) {
+  try {
+    const client = await clientPromise;
+    const db = client.db();
+
+    // Convert string ID to ObjectId
+    const chatObjectId = typeof chatId === 'string' ? new ObjectId(chatId) : chatId;
+
+    const chat = await db.collection('chats').findOne({ _id: chatObjectId });
+    
+    if (!chat) {
+      return { success: false, error: 'Chat not found' };
+    }
+
+    return { success: true, chat };
+  } catch (error) {
+    console.error('Error fetching chat by ID:', error);
+    return { success: false, error: 'Failed to fetch chat' };
+  }
+}
+
       updatedAt: new Date()
     };
 

@@ -3,7 +3,7 @@ import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-export function useAuthHook() {
+export function useAuth() {
   const { data: session, status } = useSession();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
