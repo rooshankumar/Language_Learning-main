@@ -79,10 +79,19 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    await signOut({ redirect: false });
-    setUser(null);
-    router.push('/sign-in');
-    router.refresh();
+    try {
+      const result = await signOut({ 
+        redirect: false,
+        callbackUrl: '/sign-in'
+      });
+      
+      setUser(null);
+      
+      // Force hard navigation to sign-in page
+      window.location.href = '/sign-in';
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   const value = {
