@@ -1,82 +1,80 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongoose';
 import User from '@/models/User';
-import cloudinary from '@/lib/cloudinary';
+import { v2 as cloudinary } from 'cloudinary';
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export async function POST(req: NextRequest) {
   try {
+    // Check authentication
     const session = await getServerSession(authOptions);
     
-    if (!session || !session.user) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    // Parse form data
+    // Get form data
     const formData = await req.formData();
-    const file = formData.get('profilePic') as File;
+    const file = formData.get('file') as File | null;
     
     if (!file) {
-      return NextResponse.json({ message: 'No file uploaded' }, { status: 400 });
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
     
     // Convert file to buffer
-    const buffer = Buffer.from(await file.arrayBuffer());
-    
-    // Convert to base64 for Cloudinary
-    const fileType = file.type;
-    const base64String = `data:${fileType};base64,${buffer.toString('base64')}`;
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     
     // Upload to Cloudinary
-    const result = await new Promise((resolve, reject) => {
-      cloudinary.uploader.upload(
-        base64String,
-        {
-          folder: 'profile_pictures',
-          transformation: [{ width: 500, height: 500, crop: 'limit' }]
-        },
+    const uploadPromise = new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        { folder: 'user_profiles' },
         (error, result) => {
           if (error) reject(error);
           else resolve(result);
         }
-      );
+      ).end(buffer);
     });
+    
+    const uploadResult = await uploadPromise as any;
     
     // Update user in database
     await connectToDatabase();
-    const userId = session.user.id || session.user._id;
+    // Fix the type error by using optional chaining and type assertion
+    const userId = (session.user as any).id || (session.user as any)._id;
     
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { 
-        profilePic: (result as any).secure_url,
-        photoURL: (result as any).secure_url, // Update photoURL for consistency
-        image: (result as any).secure_url, // Update image for consistency with NextAuth
+        profilePic: uploadResult.secure_url,
+        image: uploadResult.secure_url,
+        photoURL: uploadResult.secure_url 
       },
       { new: true }
     );
     
     if (!updatedUser) {
-      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    return NextResponse.json({
-      message: 'Profile picture uploaded successfully',
-      profilePic: (result as any).secure_url,
-      user: {
-        id: updatedUser._id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        profilePic: (result as any).secure_url
-      }
+    return NextResponse.json({ 
+      success: true, 
+      profileUrl: uploadResult.secure_url 
     });
     
   } catch (error) {
-    console.error('Error uploading profile picture:', error);
+    console.error('Profile upload error:', error);
     return NextResponse.json(
-      { message: 'Server error', error: (error as Error).message },
+      { error: 'Failed to upload profile picture' },
       { status: 500 }
     );
   }
