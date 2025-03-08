@@ -208,3 +208,69 @@ export default function UserCard({ user, onChat, onViewProfile }: UserCardProps)
     </div>
   );
 }
+"use client";
+
+import { Card } from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { MessageCircle, User } from "lucide-react";
+
+interface UserProps {
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+    image?: string;
+    bio?: string;
+    nativeLanguage?: string;
+    learningLanguage?: string;
+    lastSeen?: string;
+    online?: boolean;
+  };
+  onChat: () => void;
+  onViewProfile: () => void;
+}
+
+export default function UserCard({ user, onChat, onViewProfile }: UserProps) {
+  return (
+    <Card className="p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-start space-x-4">
+        <div className="relative">
+          <Avatar className="h-12 w-12">
+            <AvatarImage src={user.image || "/placeholder-user.jpg"} alt={user.name} />
+            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+          </Avatar>
+          {user.online && (
+            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white" />
+          )}
+        </div>
+        <div className="flex-1">
+          <h3 className="font-semibold">{user.name}</h3>
+          {user.bio && <p className="text-sm text-muted-foreground line-clamp-2 my-1">{user.bio}</p>}
+          <div className="flex flex-wrap gap-1 mt-1">
+            {user.nativeLanguage && (
+              <span className="text-xs bg-muted px-2 py-1 rounded-full">
+                Speaks: {user.nativeLanguage}
+              </span>
+            )}
+            {user.learningLanguage && (
+              <span className="text-xs bg-muted px-2 py-1 rounded-full">
+                Learning: {user.learningLanguage}
+              </span>
+            )}
+          </div>
+          <div className="flex space-x-2 mt-3">
+            <Button size="sm" variant="outline" onClick={onChat}>
+              <MessageCircle className="h-4 w-4 mr-1" />
+              Chat
+            </Button>
+            <Button size="sm" variant="outline" onClick={onViewProfile}>
+              <User className="h-4 w-4 mr-1" />
+              Profile
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
