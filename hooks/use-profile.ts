@@ -1,100 +1,92 @@
+
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useToast } from './use-toast';
 
-interface ProfileData {
-  name?: string;
-  email?: string;
-  profilePicture?: string;
-  bio?: string;
+interface Profile {
+  name: string;
+  bio: string;
   age?: number;
-  nativeLanguage?: string;
-  learningLanguage?: string;
-  learningLanguages?: string[];
-  interests?: string[];
+  nativeLanguage: string;
+  learningLanguages: string[];
+  interests: string[];
+  profilePic?: string;
 }
 
-export function useProfile() {
-  const { data: session, status } = useSession();
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export const useProfile = () => {
+  const { data: session } = useSession();
+  const { toast } = useToast();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchProfile = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/user/profile');
+      if (!response.ok) {
+        throw new Error('Failed to fetch profile');
+      }
+      const data = await response.json();
+      setProfile(data.user);
+    } catch (err) {
+      console.error('Error getting profile:', err);
+      setError('Failed to load profile. Please try again.');
+      toast({
+        title: 'Error',
+        description: 'Failed to load profile. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateProfile = async (profileData: Partial<Profile>) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profileData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+
+      const data = await response.json();
+      setProfile(data.user);
+      return data;
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      setError('Failed to update profile. Please try again.');
+      toast({
+        title: 'Error',
+        description: 'Failed to update profile. Please try again.',
+        variant: 'destructive',
+      });
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      if (status !== 'authenticated') return;
-
-      try {
-        setLoading(true);
-        const res = await fetch('/api/user/profile');
-
-        if (!res.ok) {
-          throw new Error(`Failed to fetch profile: ${res.status}`);
-        }
-
-        const data = await res.json();
-        setProfile(data.user);
-        setError(null);
-      } catch (err: any) {
-        console.error('Error fetching profile:', err);
-        setError(err.message || 'Failed to load profile');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, [status]);
-
-  const updateProfile = async (data: any) => {
-    if (!session) {
-      throw new Error('Not authenticated');
+    if (session) {
+      fetchProfile();
+    } else {
+      setIsLoading(false);
     }
-
-    const res = await fetch('/api/user/profile', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.error || 'Failed to update profile');
-    }
-
-    const updatedData = await res.json();
-    setProfile(updatedData.user);
-    return updatedData.user;
-  };
-
-  const uploadProfileImage = async (file: File) => {
-    if (!session) {
-      throw new Error('Not authenticated');
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const res = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.error || 'Failed to upload image');
-    }
-
-    const data = await res.json();
-    return data.url;
-  };
+  }, [session]);
 
   return {
     profile,
-    loading,
+    isLoading,
     error,
+    fetchProfile,
     updateProfile,
-    uploadProfileImage,
   };
-}
+};
