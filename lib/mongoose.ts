@@ -1,9 +1,11 @@
+
 import mongoose from 'mongoose';
 
 let isConnected = false;
 
 export const connectToDatabase = async () => {
   if (isConnected) {
+    console.log('MongoDB is already connected');
     return;
   }
 
@@ -13,12 +15,14 @@ export const connectToDatabase = async () => {
 
   try {
     if (mongoose.connection.readyState === 0) {
-      // Set mongoose options
+      // Set mongoose options for better reliability
       const options: mongoose.ConnectOptions = {
-        // These options help with connection stability
         maxPoolSize: 10,
-        serverSelectionTimeoutMS: 5000,
+        serverSelectionTimeoutMS: 30000,
         socketTimeoutMS: 45000,
+        family: 4, // Use IPv4, skip trying IPv6
+        retryWrites: true,
+        retryReads: true,
       };
 
       await mongoose.connect(process.env.MONGODB_URI, options);
@@ -30,6 +34,7 @@ export const connectToDatabase = async () => {
     }
   } catch (error) {
     console.error('❌ Error connecting to MongoDB:', error);
+    throw error;
   }
 };
 
