@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
@@ -16,7 +15,7 @@ export async function GET(req: NextRequest) {
     }
 
     const user = await User.findOne({ email: session.user.email });
-    
+
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -38,48 +37,50 @@ export async function PUT(req: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { message: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const requestData = await req.json();
-    
-    // Remove undefined or null values to prevent overwriting with nulls
-    Object.keys(requestData).forEach(key => {
-      if (requestData[key] === null || requestData[key] === undefined) {
-        delete requestData[key];
-      }
-    });
+    const userData = await req.json();
+    console.log("Updating user with data:", userData);
 
-    // Ensure if profile pic is updated, it syncs to all image fields
-    if (requestData.profilePic) {
-      requestData.image = requestData.profilePic;
-      requestData.photoURL = requestData.profilePic;
+    // Ensure profile image fields are synchronized
+    if (userData.profilePic) {
+      userData.image = userData.profilePic;
+      userData.photoURL = userData.profilePic;
+    } else if (userData.image) {
+      userData.profilePic = userData.image;
+      userData.photoURL = userData.image;
+    } else if (userData.photoURL) {
+      userData.profilePic = userData.photoURL;
+      userData.image = userData.photoURL;
     }
 
-    // If displayName is provided, also update the name field
-    if (requestData.displayName) {
-      requestData.name = requestData.displayName;
-    }
-
-    // Update user in database with new data
     const updatedUser = await User.findOneAndUpdate(
       { email: session.user.email },
-      { $set: requestData },
-      { new: true } // Return the updated document
+      { $set: userData },
+      { new: true, runValidators: true }
     );
-    
+
     if (!updatedUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json(
+        { message: 'User not found' },
+        { status: 404 }
+      );
     }
 
+    console.log("User updated successfully:", updatedUser);
+
     return NextResponse.json({ 
-      user: updatedUser,
-      message: 'Profile updated successfully' 
+      message: 'Profile updated successfully',
+      user: updatedUser
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error updating profile:', error);
     return NextResponse.json(
-      { error: 'Failed to update profile: ' + error.message },
+      { message: 'Server error', error: (error as Error).message },
       { status: 500 }
     );
   }

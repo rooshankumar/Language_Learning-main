@@ -45,6 +45,8 @@ export const useProfile = () => {
   const updateProfile = async (profileData: Partial<Profile>) => {
     setIsLoading(true);
     try {
+      console.log("Updating profile with data:", profileData);
+      
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: {
@@ -54,10 +56,12 @@ export const useProfile = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update profile');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update profile');
       }
 
       const data = await response.json();
+      console.log("Profile updated successfully:", data);
       setProfile(data.user);
       return data;
     } catch (err) {
@@ -65,7 +69,7 @@ export const useProfile = () => {
       setError('Failed to update profile. Please try again.');
       toast({
         title: 'Error',
-        description: 'Failed to update profile. Please try again.',
+        description: err instanceof Error ? err.message : 'Failed to update profile. Please try again.',
         variant: 'destructive',
       });
       throw err;

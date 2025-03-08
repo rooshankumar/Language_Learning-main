@@ -113,11 +113,15 @@ const ProfileDashboard = () => {
         });
         
         if (!uploadResponse.ok) {
-          throw new Error('Failed to upload profile picture');
+          const errorData = await uploadResponse.json();
+          throw new Error(errorData.message || 'Failed to upload profile picture');
         }
         
         const uploadData = await uploadResponse.json();
         profilePicUrl = uploadData.profilePic;
+        
+        // Refresh profile after image upload to ensure we have latest data
+        await fetchProfile();
       }
       
       // Then update the profile with all data including the new image URL
@@ -125,9 +129,15 @@ const ProfileDashboard = () => {
         ...formData,
         age: formData.age ? parseInt(formData.age) : undefined,
         profilePic: profilePicUrl,
+        photoURL: profilePicUrl, // Update all image fields for consistency
+        image: profilePicUrl,
       };
       
-      await updateProfile(updatedData);
+      const result = await updateProfile(updatedData);
+      console.log("Profile update result:", result);
+      
+      // Refresh profile again after updating to ensure we have the latest data
+      await fetchProfile();
       
       toast({
         title: "Profile Updated",
@@ -137,7 +147,7 @@ const ProfileDashboard = () => {
       console.error('Error updating profile:', error);
       toast({
         title: "Error",
-        description: "Failed to update profile. Please try again.",
+        description: error.message || "Failed to update profile. Please try again.",
         variant: "destructive",
       });
     } finally {
