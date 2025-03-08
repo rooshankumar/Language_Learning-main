@@ -1,276 +1,157 @@
-
 "use client"
 
-import React from 'react'
-import Image from 'next/image'
-import { Card } from "@/components/ui/card"
-import { CardContent, CardFooter } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { useRouter } from "next/navigation"
-import { MessageSquare, Flag } from "lucide-react"
-import { useChat } from "@/hooks/use-chat"
-import { useAuth } from "@/contexts/auth-context"
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { MessageCircle } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
+import { useChat } from "@/hooks/use-chat";
 
 interface UserCardProps {
   user: {
-    id: string
-    displayName?: string
-    photoURL?: string
-    location?: string
-    bio?: string
-    age?: number
-    nativeLanguages?: string[]
-    learningLanguages?: string[]
+    _id: string;
+    name?: string;
+    displayName?: string;
+    image?: string;
+    photoURL?: string;
+    bio?: string;
+    age?: number;
+    nativeLanguage?: string;
+    learningLanguage?: string;
+    nativeLanguages?: string[];
+    learningLanguages?: string[];
+    interests?: string[];
+    online?: boolean;
   }
 }
 
 export function UserCard({ user }: UserCardProps) {
-  const router = useRouter()
-  const { user: currentUser } = useAuth()
-  const { createOrGetChat } = useChat('', '')  // Initialize with empty strings as we only need createOrGetChat
+  const router = useRouter();
+  const { user: currentUser } = useAuth();
+  const { createOrGetChat } = useChat('', '');
 
   const handleMessageClick = async () => {
-    if (!currentUser || !user.id || !createOrGetChat) return
-    
+    if (!currentUser || !user._id || !createOrGetChat) return;
+
     try {
-      const chatId = await createOrGetChat(user.id)
-      router.push(`/chat/${chatId}`)
+      const chatId = await createOrGetChat(user._id);
+      router.push(`/chat/${chatId}`);
     } catch (error) {
-      console.error("Error starting chat:", error)
+      console.error("Error starting chat:", error);
     }
-  }
+  };
+
+  // Get user's display name (use fallbacks if needed)
+  const userName = user.displayName || user.name || "User";
+
+  // Get profile image with fallback
+  const profileImage = user.photoURL || user.image || "/placeholder-user.jpg";
+
+  // Get language badges
+  const getNativeBadges = () => {
+    if (user.nativeLanguages && user.nativeLanguages.length > 0) {
+      return user.nativeLanguages.map((lang) => (
+        <Badge key={lang} variant="default">{lang}</Badge>
+      ));
+    } else if (user.nativeLanguage) {
+      return <Badge variant="default">{user.nativeLanguage}</Badge>;
+    }
+    return <Badge variant="outline">Not specified</Badge>;
+  };
 
   const getLearningBadges = () => {
-    if (!user.learningLanguages || !user.learningLanguages.length) {
-      return <Badge variant="outline">No languages</Badge>
+    if (user.learningLanguages && user.learningLanguages.length > 0) {
+      return user.learningLanguages.map((lang) => (
+        <Badge key={lang} variant="secondary">{lang}</Badge>
+      ));
+    } else if (user.learningLanguage) {
+      return <Badge variant="secondary">{user.learningLanguage}</Badge>;
     }
-    
-    return user.learningLanguages.map((lang: string) => (
-      <Badge key={lang} variant="secondary">{lang}</Badge>
-    ))
-  }
+    return <Badge variant="outline">Not specified</Badge>;
+  };
 
-  const getNativeBadges = () => {
-    if (!user.nativeLanguages || !user.nativeLanguages.length) {
-      return <Badge variant="outline">No languages</Badge>
+  // Get interests badges
+  const getInterestBadges = () => {
+    if (!user.interests || user.interests.length === 0) {
+      return <Badge variant="outline">No interests listed</Badge>;
     }
-    
-    return user.nativeLanguages.map((lang: string) => (
-      <Badge key={lang} variant="default">{lang}</Badge>
-    ))
-  }
+
+    return user.interests.map((interest) => (
+      <Badge key={interest} variant="outline">{interest}</Badge>
+    ));
+  };
 
   return (
-    <Card className="overflow-hidden">
-      <div className="aspect-[3/1] bg-gradient-to-r from-primary/20 to-primary/5"></div>
-      <CardContent className="p-6 -mt-12">
+    <Card className="overflow-hidden h-full">
+      <div className="aspect-[5/1] bg-gradient-to-r from-primary/20 to-primary/5"></div>
+      <CardContent className="p-6 -mt-8">
         <div className="flex items-center gap-4 mb-4">
           <div className="rounded-full border-4 border-background overflow-hidden">
             <Image 
-              src={user.photoURL || "/placeholder-user.jpg"} 
-              alt={user.displayName || "User"}
+              src={profileImage} 
+              alt={userName}
               width={80}
               height={80}
               className="aspect-square object-cover"
             />
           </div>
           <div>
-            <h3 className="text-lg font-medium">{user.displayName || "User"}</h3>
-            <p className="text-sm text-muted-foreground">
-              {user.age ? `${user.age} years old` : "Age not specified"}
-              {user.location && ` • ${user.location}`}
-            </p>
+            <h3 className="text-lg font-medium">{userName}</h3>
+            <div className="flex items-center space-x-2">
+              {user.age && <span className="text-sm text-muted-foreground">{user.age} years old</span>}
+              {user.online && (
+                <span className="flex items-center">
+                  <span className="h-2 w-2 rounded-full bg-green-500 mr-1"></span>
+                  <span className="text-sm text-muted-foreground">Online</span>
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        
+
+        <div className="mb-4">
+          <h4 className="text-sm font-medium mb-2">Speaks</h4>
+          <div className="flex flex-wrap gap-2">
+            {getNativeBadges()}
+          </div>
+        </div>
+
         <div className="mb-4">
           <h4 className="text-sm font-medium mb-2">Learning</h4>
           <div className="flex flex-wrap gap-2">
             {getLearningBadges()}
           </div>
         </div>
-        
-        <div className="mb-4">
-          <h4 className="text-sm font-medium mb-2">Native</h4>
-          <div className="flex flex-wrap gap-2">
-            {getNativeBadges()}
+
+        {user.interests && user.interests.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-medium mb-2">Interests</h4>
+            <div className="flex flex-wrap gap-2">
+              {getInterestBadges()}
+            </div>
           </div>
+        )}
+
+        {user.bio && (
+          <div className="mb-4">
+            <h4 className="text-sm font-medium mb-2">Bio</h4>
+            <p className="text-sm text-muted-foreground">{user.bio}</p>
+          </div>
+        )}
+
+        <div className="mt-4">
+          <Button 
+            onClick={handleMessageClick} 
+            className="w-full"
+            variant="default"
+          >
+            <MessageCircle className="mr-2 h-4 w-4" />
+            Chat with {userName.split(' ')[0]}
+          </Button>
         </div>
-        
-        <p className="text-sm text-muted-foreground mb-4">
-          {user.bio || "No bio available"}
-        </p>
       </CardContent>
-      <CardFooter className="px-6 py-4 flex justify-between gap-4 border-t">
-        <Button 
-          className="flex-1" 
-          onClick={handleMessageClick}
-        >
-          <MessageSquare className="h-4 w-4 mr-2" />
-          Message
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="icon"
-          title="Report user"
-        >
-          <Flag className="h-4 w-4" />
-        </Button>
-      </CardFooter>
-    </Card>
-  )
-}
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { MessageCircle, User as UserIcon } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-
-interface User {
-  _id: string;
-  name: string;
-  image: string;
-  bio?: string;
-  nativeLanguage?: string;
-  learningLanguage?: string;
-  lastSeen?: string;
-  online?: boolean;
-}
-
-interface UserCardProps {
-  user: User;
-  onChat: () => void;
-  onViewProfile: () => void;
-}
-
-export default function UserCard({ user, onChat, onViewProfile }: UserCardProps) {
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
-  };
-
-  const lastActive = user.lastSeen 
-    ? formatDistanceToNow(new Date(user.lastSeen), { addSuffix: true }) 
-    : "Unknown";
-
-  return (
-    <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-start space-x-4">
-        <Avatar className="h-12 w-12">
-          <AvatarImage src={user.image} alt={user.name} />
-          <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center">
-            <h3 className="font-medium truncate">{user.name}</h3>
-            {user.online && (
-              <span className="ml-2 h-2 w-2 rounded-full bg-green-500" title="Online"></span>
-            )}
-          </div>
-          
-          <div className="mt-1 flex flex-wrap gap-1">
-            {user.nativeLanguage && (
-              <Badge variant="outline" className="text-xs">
-                Speaks: {user.nativeLanguage}
-              </Badge>
-            )}
-            {user.learningLanguage && (
-              <Badge variant="outline" className="text-xs">
-                Learning: {user.learningLanguage}
-              </Badge>
-            )}
-          </div>
-          
-          {user.bio && (
-            <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{user.bio}</p>
-          )}
-          
-          <p className="text-xs text-muted-foreground mt-2">
-            {user.online ? "Active now" : `Last active ${lastActive}`}
-          </p>
-        </div>
-      </div>
-      
-      <div className="mt-4 flex space-x-2">
-        <Button size="sm" variant="outline" onClick={onChat} className="flex-1">
-          <MessageCircle className="h-4 w-4 mr-2" />
-          Chat
-        </Button>
-        <Button size="sm" variant="outline" onClick={onViewProfile} className="flex-1">
-          <UserIcon className="h-4 w-4 mr-2" />
-          Profile
-        </Button>
-      </div>
-    </div>
-  );
-}
-"use client";
-
-import { Card } from "@/components/ui/card";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { MessageCircle, User } from "lucide-react";
-
-interface UserProps {
-  user: {
-    _id: string;
-    name: string;
-    email: string;
-    image?: string;
-    bio?: string;
-    nativeLanguage?: string;
-    learningLanguage?: string;
-    lastSeen?: string;
-    online?: boolean;
-  };
-  onChat: () => void;
-  onViewProfile: () => void;
-}
-
-export default function UserCard({ user, onChat, onViewProfile }: UserProps) {
-  return (
-    <Card className="p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-start space-x-4">
-        <div className="relative">
-          <Avatar className="h-12 w-12">
-            <AvatarImage src={user.image || "/placeholder-user.jpg"} alt={user.name} />
-            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-          </Avatar>
-          {user.online && (
-            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white" />
-          )}
-        </div>
-        <div className="flex-1">
-          <h3 className="font-semibold">{user.name}</h3>
-          {user.bio && <p className="text-sm text-muted-foreground line-clamp-2 my-1">{user.bio}</p>}
-          <div className="flex flex-wrap gap-1 mt-1">
-            {user.nativeLanguage && (
-              <span className="text-xs bg-muted px-2 py-1 rounded-full">
-                Speaks: {user.nativeLanguage}
-              </span>
-            )}
-            {user.learningLanguage && (
-              <span className="text-xs bg-muted px-2 py-1 rounded-full">
-                Learning: {user.learningLanguage}
-              </span>
-            )}
-          </div>
-          <div className="flex space-x-2 mt-3">
-            <Button size="sm" variant="outline" onClick={onChat}>
-              <MessageCircle className="h-4 w-4 mr-1" />
-              Chat
-            </Button>
-            <Button size="sm" variant="outline" onClick={onViewProfile}>
-              <User className="h-4 w-4 mr-1" />
-              Profile
-            </Button>
-          </div>
-        </div>
-      </div>
     </Card>
   );
 }

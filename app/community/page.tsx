@@ -225,8 +225,6 @@ export default function CommunityPage() {
                   <UserCard
                     key={user._id}
                     user={user}
-                    onChat={() => handleStartChat(user._id)}
-                    onViewProfile={() => handleViewProfile(user._id)}
                   />
                 ))}
             </div>
