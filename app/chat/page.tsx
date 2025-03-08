@@ -1,5 +1,5 @@
 
-// This is a Server Component (no 'use client' directive)
+// Server Component (no 'use client' directive)
 import { Suspense } from "react";
 import { ChatWrapper } from "@/components/chat/ChatWrapper";
 

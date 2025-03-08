@@ -1,7 +1,7 @@
 
 import { useEffect, useLayoutEffect } from 'react';
 
-// Properly handle SSR by checking if window is defined
+// This hook safely handles useLayoutEffect during SSR
 const useIsomorphicLayoutEffect = 
   typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
