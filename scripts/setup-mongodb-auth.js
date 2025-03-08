@@ -49,6 +49,7 @@ async function setupMongoDBAuth() {
     
     // Set up NextAuth environment variables if they don't exist
     let envContent = '';
+    
     try {
       envContent = fs.readFileSync(path.join(process.cwd(), '.env.local'), 'utf8');
     } catch (err) {
@@ -64,8 +65,13 @@ async function setupMongoDBAuth() {
     
     // Set NextAuth URL if it doesn't exist
     if (!envContent.includes('NEXTAUTH_URL=')) {
-      envContent += `NEXTAUTH_URL="https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co"\n`;
-      console.log('✅ Set NEXTAUTH_URL to your Replit URL');
+      // Using Replit-specific environment variables to set the correct domain
+      const replitDomain = process.env.REPL_SLUG && process.env.REPL_OWNER
+        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+        : 'http://localhost:3000';
+        
+      envContent += `NEXTAUTH_URL="${replitDomain}"\n`;
+      console.log('✅ Set NEXTAUTH_URL to', replitDomain);
     }
     
     fs.writeFileSync(path.join(process.cwd(), '.env.local'), envContent);
@@ -83,4 +89,4 @@ async function setupMongoDBAuth() {
   }
 }
 
-setupMongoDBAuth().catch(console.error);
+setupMongoDBAuth();

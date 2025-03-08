@@ -1,3 +1,4 @@
+
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
@@ -32,18 +33,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const { data: session, status, update } = useSession();
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<UserData | null>(null); //Added to manage user data
-
+  const [user, setUser] = useState<UserData | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const updateSession = useCallback(async () => {
     try {
       setLoading(true);
       await update();
-      setUser(session?.user); // Update user state after session update
+      if (session?.user) {
+        setUser({
+          id: session.user.id || '',
+          displayName: session.user.name || '',
+          email: session.user.email || '',
+          photoURL: session.user.image || '/placeholder-user.jpg',
+          bio: session.user.bio || ''
+        });
+      }
     } catch (error) {
       console.error("Error updating session:", error);
-      // Notify the user about session update failure
-      setUser(null); // Reset user state if session update fails
+      setAuthError("Failed to update session. Please try again.");
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -67,6 +76,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     }
   }, [status, session]);
+
+  const handleSignIn = async (provider: string, options?: any) => {
+    setAuthError(null);
+    try {
+      const result = await signIn(provider, { 
+        ...options,
+        redirect: false 
+      });
+      
+      if (result?.error) {
+        console.error("SignIn error:", result.error);
+        setAuthError(result.error);
+        return result;
+      }
+      
+      if (result?.ok) {
+        await updateSession();
+      }
+      
+      return result;
+    } catch (error) {
+      console.error("SignIn error:", error);
+      setAuthError("Failed to sign in. Please try again.");
+      return { error: "Failed to sign in" };
+    }
+  };
 
   const updateUserProfile = async (profileData: any) => {
     try {
@@ -108,7 +143,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error(errorData.message || 'Failed to update profile');
       }
 
-      await updateSession(); // Use updateSession to refresh after profile update.
+      await updateSession();
       return await res.json();
     } catch (error: any) {
       console.error("Profile update error:", error);
@@ -124,7 +159,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     session,
     status,
     user,
-    signIn,
+    signIn: handleSignIn,
     signOut: async () => {
       await signOut({ redirect: false });
       router.push("/sign-in");

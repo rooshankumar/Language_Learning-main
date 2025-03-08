@@ -10,18 +10,26 @@ import User from "@/models/User";
 import clientPromise from "@/lib/mongodb";
 
 export const authOptions: NextAuthOptions = {
+  adapter: MongoDBAdapter(clientPromise),
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === 'development',
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
+  pages: {
+    signIn: '/sign-in',
+    error: '/sign-in', // Error code passed in query string
+  },
   callbacks: {
     async jwt({ token, user }) {
       // Add user data to the token when a user signs in
       if (user) {
         token.id = user.id;
-        token.isOnboarded = user.isOnboarded;
+        token.isOnboarded = user.isOnboarded || false;
+        token.name = user.name;
+        token.email = user.email;
+        token.image = user.image;
       }
       return token;
     },
@@ -30,8 +38,18 @@ export const authOptions: NextAuthOptions = {
       if (session.user && token) {
         session.user.id = token.id as string;
         session.user.isOnboarded = token.isOnboarded as boolean;
+        session.user.name = token.name as string;
+        session.user.email = token.email as string;
+        session.user.image = token.image as string;
       }
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      // Allows relative callback URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
     }
   },
   providers: [
@@ -57,65 +75,56 @@ export const authOptions: NextAuthOptions = {
           
           if (!user) {
             console.log(`User not found with email: ${credentials.email}`);
-            throw new Error("User not found");
+            return null;
           }
           
+          // Check if user has a password (some users might be using OAuth)
           if (!user.password) {
-            console.log("User has no password (may be using OAuth)");
-            throw new Error("Invalid login method");
+            console.log(`User exists but has no password (possibly OAuth user): ${credentials.email}`);
+            return null;
           }
-          
-          // Debug log
-          console.log("User found, verifying password...");
           
           const isValid = await bcrypt.compare(credentials.password, user.password);
           
           if (!isValid) {
-            console.log("Password verification failed");
-            throw new Error("Invalid credentials");
+            console.log(`Invalid password for user: ${credentials.email}`);
+            return null;
           }
           
-          console.log("Authentication successful");
+          console.log(`User authenticated successfully: ${credentials.email}`);
           
           return {
             id: user._id.toString(),
             name: user.name,
             email: user.email,
             image: user.image || user.photoURL,
-            isOnboarded: user.isOnboarded,
+            isOnboarded: user.isOnboarded || false
           };
         } catch (error) {
-          console.error("Auth error:", error);
-          throw new Error(error.message || "Authentication failed");
+          console.error("Authentication error:", error);
+          return null;
         }
       }
     }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-    }),
-  ],
-  debug: process.env.NODE_ENV === "development",
-  session: {
-    strategy: "jwt",
-  },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.user = user;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      session.user = token.user;
-      return session;
-    },
-  },
-  pages: {
-    signIn: "/sign-in",
-    error: "/sign-in",
-  },
-  adapter: MongoDBAdapter(clientPromise),
+    // Add Google provider if configured
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            profile(profile) {
+              return {
+                id: profile.sub,
+                name: profile.name,
+                email: profile.email,
+                image: profile.picture,
+                isOnboarded: false
+              };
+            }
+          })
+        ]
+      : [])
+  ]
 };
 
 const handler = NextAuth(authOptions);
