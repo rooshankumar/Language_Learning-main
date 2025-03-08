@@ -22,7 +22,8 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const { db } = await connectToDatabase();
+          const client = await clientPromise;
+          const db = client.db();
           const user = await db.collection("users").findOne({ email: credentials.email });
 
           if (!user || !user.password) {
