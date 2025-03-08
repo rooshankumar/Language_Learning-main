@@ -117,7 +117,7 @@ export default function SettingsPage() {
               </div>
             </CardContent>
             <CardFooter className="flex justify-between">
-              <Button variant="outline" onClick={() => signOut()}>Sign Out</Button>
+              <Button variant="outline" onClick={() => user?.logout()}>Sign Out</Button>
               <Button variant="destructive" onClick={handleDeleteAccount}>Delete Account</Button>
             </CardFooter>
           </Card>

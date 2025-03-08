@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
 
 export function MobileNav() {
-  const { signOut } = useAuth()
+  const { logout } = useAuth()
 
   const handleLogout = async () => {
-    await signOut()
+    await logout()
   }
 
   const { toggleSidebar } = useSidebar()

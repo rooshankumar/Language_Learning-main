@@ -14,10 +14,10 @@ import { useAuth } from "@/contexts/auth-context"
 
 export function AppSidebar() {
   const { isMobile, openMobile, setOpenMobile, state, toggleSidebar } = useSidebar()
-  const { signOut } = useAuth()
+  const { logout } = useAuth()
 
   const handleLogout = async () => {
-    await signOut()
+    await logout()
   }
 
   const sidebarContent = (
