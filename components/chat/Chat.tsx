@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from "react";
@@ -18,49 +17,60 @@ type Message = {
   timestamp?: Date;
 };
 
+let socket: Socket | undefined; // Initialize socket outside the component
+
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const { data: session } = useSession();
+  const [loading, setLoading] = useState(true); // Add loading state
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: session } = useSession();
 
   useEffect(() => {
-    // Connect to the Socket.io server
-    const socketConnection = io(window.location.origin);
-    setSocket(socketConnection);
-    
-    // Cleanup on unmount
-    return () => {
-      socketConnection.disconnect();
+    // Initialize socket connection only once
+    if (!socket) {
+      socket = io(window.location.origin);
+    }
+
+    const fetchMessages = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch("/api/messages"); // fetch initial messages
+        if (response.ok) {
+          const data = await response.json();
+          setMessages(data);
+        }
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+      } finally {
+        setLoading(false);
+      }
     };
-  }, []);
+    fetchMessages();
 
-  useEffect(() => {
-    if (!socket) return;
 
     socket.on("chatMessage", (message: Message) => {
       setMessages((prev) => [...prev, message]);
     });
 
     socket.on("receiveFile", (fileUrl: string) => {
-      setMessages((prev) => [...prev, { 
-        type: "file", 
+      setMessages((prev) => [...prev, {
+        type: "file",
         url: fileUrl,
         timestamp: new Date()
       }]);
     });
 
     return () => {
-      socket.off("chatMessage");
-      socket.off("receiveFile");
+      socket?.off("chatMessage");
+      socket?.off("receiveFile");
+      socket?.disconnect(); //added disconnect
     };
-  }, [socket]);
+  }, []);
 
   useEffect(() => {
-    // Scroll to bottom when messages change
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -73,7 +83,7 @@ export default function Chat() {
       sender: session?.user?.name || 'Anonymous',
       timestamp: new Date()
     };
-    
+
     socket.emit("chatMessage", message);
     setInput("");
   };
@@ -122,37 +132,38 @@ export default function Chat() {
       </CardHeader>
       <CardContent>
         <div className="h-[400px] overflow-y-auto mb-4 p-4 border rounded-md">
-          {messages.map((msg, index) => (
-            <div 
-              key={index} 
-              className={`mb-2 ${msg.sender === session?.user?.name ? 'text-right' : 'text-left'}`}
-            >
-              <div 
-                className={`inline-block p-3 rounded-lg ${
-                  msg.sender === session?.user?.name 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-gray-200 dark:bg-gray-700'
-                }`}
+          {loading ? <p>Loading messages...</p> : // Show loading indicator
+            messages.map((msg, index) => (
+              <div
+                key={index}
+                className={`mb-2 ${msg.sender === session?.user?.name ? 'text-right' : 'text-left'}`}
               >
-                {msg.type === "text" ? (
-                  <p>{msg.text}</p>
-                ) : (
-                  <a 
-                    href={msg.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="flex items-center text-blue-500 hover:underline"
-                  >
-                    <Paperclip className="mr-1" size={16} />
-                    Attachment
-                  </a>
-                )}
-                <div className="text-xs mt-1 opacity-70">
-                  {msg.timestamp && new Date(msg.timestamp).toLocaleTimeString()}
+                <div
+                  className={`inline-block p-3 rounded-lg ${
+                    msg.sender === session?.user?.name
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700'
+                    }`}
+                >
+                  {msg.type === "text" ? (
+                    <p>{msg.text}</p>
+                  ) : (
+                    <a
+                      href={msg.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center text-blue-500 hover:underline"
+                    >
+                      <Paperclip className="mr-1" size={16} />
+                      Attachment
+                    </a>
+                  )}
+                  <div className="text-xs mt-1 opacity-70">
+                    {msg.timestamp && new Date(msg.timestamp).toLocaleTimeString()}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
           <div ref={messagesEndRef} />
         </div>
 
