@@ -16,8 +16,12 @@ import { ArrowLeft, Send } from 'lucide-react';
 import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
 
-export default function ChatDetailPage() {
-  const { chatId } = useParams() as { chatId: string };
+interface ChatDetailPageProps {
+  chatId: string;
+}
+
+export default function ChatDetailPage({ chatId }: ChatDetailPageProps) {
+  // chatId is now passed as a prop
   const { session } = useAuth();
   const userId = session?.user?.id;
   const router = useRouter();

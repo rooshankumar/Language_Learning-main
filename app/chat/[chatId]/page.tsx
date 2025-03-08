@@ -23,7 +23,7 @@ async function Page({ params }: PageProps) {
 
   return (
     <Suspense fallback={<div className="p-4">Loading chat conversation...</div>}>
-      <ChatDetailPage chatId={resolvedParams.chatId} />
+      <ChatDetailPage chatId={resolvedParams.chatId as string} />
     </Suspense>
   )
 }
