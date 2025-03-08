@@ -43,7 +43,7 @@ export function AppSidebar() {
           {state === "collapsed" && <span>LC</span>}
         </div>
         {!isMobile && (
-          <Button variant="ghost" size="icon" className="ml-auto" onClick={toggleSidebar}>
+          <Button variant="ghost" size="icon" className="ml-auto" onClick={toggleSidebar} title="Toggle Sidebar">
             <PanelLeft className="h-5 w-5" />
             <span className="sr-only">Toggle Sidebar</span>
           </Button>
