@@ -1,3 +1,4 @@
+
 'use server';
 
 import clientPromise from '@/lib/mongodb';
@@ -97,6 +98,27 @@ export async function sendMessage(chatId: string, senderId: string, text: string
   }
 }
 
+export async function getChatById(chatId: string) {
+  try {
+    const client = await clientPromise;
+    const db = client.db();
+
+    // Convert string ID to ObjectId
+    const chatObjectId = typeof chatId === 'string' ? new ObjectId(chatId) : chatId;
+
+    const chat = await db.collection('chats').findOne({ _id: chatObjectId });
+    
+    if (!chat) {
+      return { success: false, error: 'Chat not found' };
+    }
+
+    return { success: true, chat };
+  } catch (error) {
+    console.error('Error fetching chat by ID:', error);
+    return { success: false, error: 'Failed to fetch chat' };
+  }
+}
+
 export async function createChat(currentUserId: string, otherUserId: string) {
   try {
     const client = await clientPromise;
@@ -123,28 +145,6 @@ export async function createChat(currentUserId: string, otherUserId: string) {
       messages: [],
       lastMessage: null,
       createdBy: currentUserObjectId,
-
-export async function getChatById(chatId: string) {
-  try {
-    const client = await clientPromise;
-    const db = client.db();
-
-    // Convert string ID to ObjectId
-    const chatObjectId = typeof chatId === 'string' ? new ObjectId(chatId) : chatId;
-
-    const chat = await db.collection('chats').findOne({ _id: chatObjectId });
-    
-    if (!chat) {
-      return { success: false, error: 'Chat not found' };
-    }
-
-    return { success: true, chat };
-  } catch (error) {
-    console.error('Error fetching chat by ID:', error);
-    return { success: false, error: 'Failed to fetch chat' };
-  }
-}
-
       createdAt: new Date(),
       updatedAt: new Date()
     };
