@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import { useState, useEffect } from 'react'
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import Link from 'next/link'
@@ -45,7 +46,7 @@ export function ChatList() {
     const fetchChats = async () => {
       try {
         if (!db) throw new Error('Firestore not initialized');
-        const chatsRef = collection(db, 'chats')
+const chatsRef = collection(db, 'chats')
         const q = query(chatsRef, where('participants', 'array-contains', user.uid))
         const querySnapshot = await getDocs(q)
 
