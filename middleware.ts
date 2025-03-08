@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
@@ -9,9 +10,20 @@ const authRoutes = ['/sign-in', '/sign-up', '/verify-email', '/reset-password'];
 const protectedRoutes = ['/chat', '/profile', '/settings', '/community', '/onboarding'];
 
 export async function middleware(request: NextRequest) {
-  const token = await getToken({ req: request });
+  const token = await getToken({ 
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET
+  });
+  
   const isAuthenticated = !!token;
   const path = request.nextUrl.pathname;
+  
+  // Skip middleware for API and static routes
+  if (path.startsWith('/api') || 
+      path.startsWith('/_next') || 
+      path.includes('.')) {
+    return NextResponse.next();
+  }
 
   // If the user is authenticated and trying to access an auth route, redirect to home
   if (isAuthenticated && authRoutes.some(route => path.startsWith(route))) {
@@ -24,14 +36,13 @@ export async function middleware(request: NextRequest) {
   }
 
   // If authenticated but not onboarded trying to access any route except onboarding, redirect to onboarding
-  if (isAuthenticated && token?.user && !token.user.isOnboarded && path !== '/onboarding' && !path.startsWith('/api/')) {
-    console.log("Redirecting to onboarding: User not onboarded");
+  if (isAuthenticated && token?.user && !token.user.isOnboarded && 
+      path !== '/onboarding' && !path.startsWith('/api/')) {
     return NextResponse.redirect(new URL('/onboarding', request.url));
   }
 
   // If authenticated and onboarded trying to access onboarding, redirect to home
   if (isAuthenticated && token?.user && token.user.isOnboarded && path === '/onboarding') {
-    console.log("Redirecting to home: User already onboarded");
     return NextResponse.redirect(new URL('/', request.url));
   }
 

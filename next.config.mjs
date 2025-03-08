@@ -18,9 +18,9 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   // Server settings
   experimental: {
-    // Enable server components
-    serverComponents: true,
-    // Enable concurrency features
+    // Enable app directory
+    appDir: true,
+    // Enable server actions
     serverActions: {
       bodySizeLimit: '2mb',
     },
