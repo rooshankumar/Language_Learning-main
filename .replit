@@ -1,12 +1,11 @@
-modules = ["nodejs-20", "web"]
+modules = ["nodejs-20", "web", "nix"]
 run = "npm run dev"
 
 [nix]
 channel = "stable-24_05"
 
 [deployment]
-run = ["sh", "-c", "npm run start:prod"]
-build = ["sh", "-c", "npm run build"]
+run = ["sh", "-c", "npm run dev"]
 
 [[ports]]
 localPort = 3000
