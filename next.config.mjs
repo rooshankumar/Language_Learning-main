@@ -25,6 +25,19 @@ const nextConfig = {
       bodySizeLimit: '2mb',
     },
   },
+  // Handle MongoDB dependencies for client-side
+  webpack: (config) => {
+    // MongoDB requires these Node.js modules
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+      child_process: false,
+      'fs/promises': false,
+    };
+    return config;
+  },
   // Handle CORS issues
   async headers() {
     return [
