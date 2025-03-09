@@ -34,22 +34,29 @@ export default function ChatList() {
   useEffect(() => {
     async function fetchChatPartner(chatId: string) {
       try {
+        console.log("📩 Fetching partner for chat:", chatId);
         const res = await fetch(`/api/chat/${chatId}/partner`);
+        
         if (!res.ok) {
-          throw new Error(`Failed to fetch partner: ${res.status}`);
+          console.error("❌ Failed to fetch partner:", res.status);
+          return null; // Don't crash app if API fails
         }
+
         const data = await res.json();
+        console.log("✅ Partner data received for chat:", chatId);
         return data;
       } catch (error) {
-        console.error("Failed to fetch chat partner:", error);
-        return null; // Handle missing partner gracefully
+        console.error("🚨 Error in fetchChatPartner:", error);
+        return null; // Return null instead of crashing
       }
     }
 
     async function fetchChats() {
       try {
         setLoading(true);
+        console.log("📩 Fetching all chats...");
         const res = await fetch("/api/chat");
+        
         if (!res.ok) {
           throw new Error(`Failed to fetch chats: ${res.status}`);
         }
@@ -57,10 +64,39 @@ export default function ChatList() {
         const data = await res.json();
 
         if (!Array.isArray(data)) {
-          console.error("Invalid chat data:", data);
+          console.error("❌ Invalid chat data:", data);
           setChats([]);
+          setLoading(false);
           return;
         }
+        
+        console.log(`✅ Retrieved ${data.length} chats`);
+        
+        // Process chats with better error handling
+        const enhancedChats = await Promise.all(
+          data.map(async (chat) => {
+            try {
+              const partner = await fetchChatPartner(chat._id);
+              return { ...chat, partner };
+            } catch (err) {
+              console.error(`Failed to enhance chat ${chat._id}:`, err);
+              // Return chat without partner data rather than failing completely
+              return { ...chat, partner: null };
+            }
+          })
+        );
+        
+        setChats(enhancedChats);
+      } catch (error) {
+        console.error("🚨 Failed to fetch chats:", error);
+        setError("Failed to load your conversations");
+        setChats([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchChats();
 
         // Get partner info for each chat
         const chatsWithPartner = await Promise.all(
@@ -124,6 +160,45 @@ export default function ChatList() {
     return (
       <div className="text-center p-4 text-gray-500">
         <p>No conversations yet</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col space-y-3 p-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex items-center p-3 animate-pulse">
+            <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 mr-4"></div>
+            <div className="flex-1">
+              <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-1/2"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 text-center">
+        <p className="text-red-500 mb-3">❌ {error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (chats.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 text-center text-gray-500">
+        <p className="mb-2">No conversations yet</p>
+        <p className="text-sm">Start a new chat from the community page</p>
       </div>
     );
   }
