@@ -1,6 +1,7 @@
+
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
 import { useAuth } from "@/contexts/auth-context"
@@ -9,45 +10,43 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { SidebarProvider } from "./sidebar-provider"
 import { Loader2 } from "lucide-react"
 
-interface AppShellProps {
-  children: React.ReactNode
-  requireAuth?: boolean
-}
-
-export function AppShell({ children, requireAuth = true }: AppShellProps) {
-  const { user, loading } = useAuth()
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
 
-  // Protect routes that require authentication
+  // Handle redirection for non-authenticated users
   useEffect(() => {
-    if (!loading && !user && requireAuth) {
-      router.push("/sign-in")
+    setMounted(true)
+    if (!isLoading && !isAuthenticated) {
+      router.push('/sign-in')
     }
-  }, [user, loading, requireAuth, router])
+  }, [isAuthenticated, isLoading, router])
 
-  // Loading state
-  if (loading) {
+  // Show loading state until authentication is determined
+  if (isLoading || !mounted) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2 text-lg">Loading...</span>
+      <div className="flex h-screen w-screen items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin" />
       </div>
     )
   }
 
+  // Show only the children for non-authenticated users
+  if (!isAuthenticated) {
+    return <ThemeProvider>{children}</ThemeProvider>
+  }
+
+  // Show app shell with sidebar for authenticated users
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+    <ThemeProvider>
       <SidebarProvider>
-        <div className="flex h-full min-h-screen">
-          <div className="fixed z-20 h-full">
-            <AppSidebar />
-          </div>
-          <main className="flex-1 md:ml-16 lg:ml-64 transition-all duration-300">
+        <div className="flex h-screen w-full overflow-hidden">
+          <AppSidebar />
+          <div className="flex flex-1 flex-col overflow-hidden">
             <MobileNav />
-            <div className="container py-6 pb-16 md:pb-6">
-              {children}
-            </div>
-          </main>
+            <main className="flex-1 overflow-auto">{children}</main>
+          </div>
         </div>
       </SidebarProvider>
     </ThemeProvider>

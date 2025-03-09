@@ -1,55 +1,31 @@
 "use client"
 
-import { Home, MessageCircle, PanelLeft, User, Users, LogOut } from "lucide-react"
-import Link from "next/link"
-import { useSidebar } from "@/components/sidebar-provider"
-import { Button } from "@/components/ui/button"
-import { useAuth } from "@/contexts/auth-context"
+import React from 'react'
+import { Button } from '@/components/ui/button'
+import { Menu } from 'lucide-react'
+import { useSidebar } from '@/components/sidebar-provider'
 
 export function MobileNav() {
-  const { logout } = useAuth()
-
-  const handleLogout = async () => {
-    await logout()
-  }
-
-  const { toggleSidebar } = useSidebar()
+  const { setOpenMobile } = useSidebar()
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-30 bg-background border-t shadow-lg md:hidden">
-      <div className="flex items-center justify-around p-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/community">
-            <Users className="h-6 w-6" />
-            <span className="sr-only">Community</span>
-          </Link>
-        </Button>
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/chat">
-            <MessageCircle className="h-6 w-6" />
-            <span className="sr-only">Chat</span>
-          </Link>
-        </Button>
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/profile">
-            <User className="h-6 w-6" />
-            <span className="sr-only">Profile</span>
-          </Link>
-        </Button>
-        <Button variant="ghost" size="icon" onClick={handleLogout}>
-          <LogOut className="h-6 w-6" />
-          <span className="sr-only">Logout</span>
-        </Button>
-        <Button variant="ghost" size="icon" onClick={toggleSidebar}>
-          <PanelLeft className="h-6 w-6" />
-          <span className="sr-only">Menu</span>
-        </Button>
+    <div className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static md:hidden">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="-ml-2"
+        onClick={() => setOpenMobile(true)}
+      >
+        <Menu className="h-5 w-5" />
+        <span className="sr-only">Toggle Menu</span>
+      </Button>
+      <div className="flex-1 text-center font-bold md:text-left">
+        LinguaConnect
       </div>
     </div>
   )
 }
 
-// Placeholder functions for missing features (requires further implementation)
 export function setupProfile() {
   // Implement profile setup logic here
   console.log("Profile setup initiated");
