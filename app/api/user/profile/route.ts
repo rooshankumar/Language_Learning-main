@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getServerSession } from "next-auth/next";
@@ -9,7 +8,7 @@ import { ObjectId } from "mongodb";
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: "Not authenticated" },
@@ -18,7 +17,7 @@ export async function GET(req: Request) {
     }
 
     const { db } = await connectToDatabase();
-    
+
     const userId = session.user.id;
     const userObjectId = new ObjectId(userId);
 
@@ -53,7 +52,7 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: "Not authenticated" },
@@ -64,11 +63,11 @@ export async function PATCH(req: Request) {
     const userId = session.user.id;
     const userObjectId = new ObjectId(userId);
     const body = await req.json();
-    
+
     // Validate update data
     const allowedFields = ["name", "bio", "language", "interests", "profilePic"];
     const updateData: Record<string, any> = {};
-    
+
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
         updateData[field] = body[field];
@@ -83,7 +82,7 @@ export async function PATCH(req: Request) {
     }
 
     const { db } = await connectToDatabase();
-    
+
     // Update the user
     const result = await db.collection("users").updateOne(
       { _id: userObjectId },
