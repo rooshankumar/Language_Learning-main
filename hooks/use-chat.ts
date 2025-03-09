@@ -136,6 +136,10 @@ export default useChat;
 // Helper function for community page to create a chat with another user
 export async function createChatWithUser(recipientId: string): Promise<string> {
   try {
+    if (!recipientId) {
+      throw new Error('User ID is required');
+    }
+    
     const result = await createChat('', recipientId);
     if (result.success && result.chat) {
       return result.chat._id;

@@ -53,17 +53,33 @@ export function UserList() {
     fetchUsers();
   }, []);
 
-  const handleChatClick = async (userId: string) => { //Updated function name
+  const handleChatClick = async (userId: string) => {
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "User ID is missing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
     try {
-      const chatId = await createChatWithUser(userId); //Using updated function
-      router.push(`/chat/${chatId}`);
-    } catch (error) {
+      const chatId = await createChatWithUser(userId);
+      if (chatId) {
+        router.push(`/chat/${chatId}`);
+      } else {
+        throw new Error("Failed to create chat - no chat ID returned");
+      }
+    } catch (error: any) {
       console.error('Error starting chat:', error);
       toast({
         title: "Error",
-        description: "Failed to create chat",
-        variant: "destructive"
+        description: error.message || "Failed to start chat",
+        variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -125,7 +141,7 @@ export function UserList() {
           </CardContent>
           <CardFooter>
             <Button 
-              onClick={() => handleChatClick(user._id.toString())} //Updated function call
+              onClick={() => handleChatClick(user._id.toString())} 
               variant="secondary" 
               className="w-full"
             >
