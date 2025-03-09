@@ -53,6 +53,10 @@ class ChatService {
       path: '/api/socket',
       reconnectionAttempts: this.maxReconnectAttempts,
       timeout: 10000,
+      autoConnect: true, // Automatically connect
+      reconnection: true, // Enable reconnection
+      reconnectionDelay: 1000, // Initial delay before reconnection attempt
+      reconnectionDelayMax: 5000, // Maximum delay between reconnection attempts
       auth: {
         userId: this.userId,
         username: this.username
@@ -61,17 +65,17 @@ class ChatService {
 
     // Setup event listeners
     this.socket.on('connect', () => {
-      console.log('Socket connected');
+      console.log('✅ Socket connected:', this.socket?.id);
       this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
+      console.error('❌ Socket connection error:', error);
       this.handleReconnect();
     });
 
     this.socket.on('disconnect', (reason) => {
-      console.log(`Socket disconnected: ${reason}`);
+      console.log(`⚠️ Socket disconnected: ${reason}`);
       this.handleReconnect();
     });
 
@@ -141,35 +145,54 @@ class ChatService {
 
   // Join a chat room
   async joinChat(chatId: string) {
-    if (!this.socket || !this.socket.connected) {
-      console.error('Cannot join chat: Socket not connected, attempting to reconnect...');
+    if (!this.socket) {
+      console.error('Cannot join chat: Socket not initialized');
+      this.connectSocket();
+    }
+    
+    if (!this.socket?.connected) {
+      console.warn('⚠️ Socket not connected, waiting for connection...');
       
       // Try to reconnect if not connected
-      this.reset();
+      if (this.socket) {
+        this.socket.connect();
+      } else {
+        this.reset();
+      }
       
-      // Wait for connection or timeout after 5 seconds
+      // Wait for connection or timeout after 10 seconds (longer timeout for reliability)
       const connected = await new Promise<boolean>((resolve) => {
-        const timeout = setTimeout(() => resolve(false), 5000);
+        const timeout = setTimeout(() => {
+          console.error('❌ Socket connection timeout');
+          resolve(false);
+        }, 10000);
         
         if (this.socket) {
-          this.socket.once('connect', () => {
+          const connectHandler = () => {
             clearTimeout(timeout);
             resolve(true);
-          });
+          };
+          
+          this.socket.once('connect', connectHandler);
+          
+          // Also clean up event listener if timeout occurs
+          setTimeout(() => {
+            this.socket?.off('connect', connectHandler);
+          }, 10000);
         } else {
           clearTimeout(timeout);
           resolve(false);
         }
       });
       
-      if (!connected || !this.socket || !this.socket.connected) {
-        console.error('Failed to establish socket connection');
+      if (!connected || !this.socket?.connected) {
+        console.error('❌ Failed to establish socket connection');
         return false;
       }
     }
 
+    console.log(`✅ Socket connected (${this.socket.id}). Joining chat room: ${chatId}`);
     this.socket.emit('join_chat', { chatId });
-    console.log(`Joined chat room: ${chatId}`);
     return true;
   }
 

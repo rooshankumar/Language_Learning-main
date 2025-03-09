@@ -165,16 +165,45 @@ export function useChat(): ChatHookReturn {
   const joinChat = useCallback(async (chatId: string) => {
     if (!chatId) {
       console.error('Cannot join chat: Invalid chat ID');
+      setError('Invalid chat ID');
       return false;
     }
     
-    currentChatId.current = chatId;
-    const joined = await chatService.joinChat(chatId);
-    
-    // Reset typing indicators when joining a new chat
-    setIsTyping({});
-    
-    return joined;
+    try {
+      // Update connection status before attempting to join
+      setIsConnected(chatService.isConnected());
+      
+      // If not connected, try to reset the service
+      if (!chatService.isConnected() && socketInitialized.current) {
+        console.warn('⚠️ Socket disconnected, attempting to reconnect before joining chat');
+        chatService.reset();
+        
+        // Brief delay to allow reset to take effect
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setIsConnected(chatService.isConnected());
+      }
+      
+      currentChatId.current = chatId;
+      const joined = await chatService.joinChat(chatId);
+      
+      // Update connection status after join attempt
+      setIsConnected(chatService.isConnected());
+      
+      // Reset typing indicators when joining a new chat
+      setIsTyping({});
+      
+      if (!joined) {
+        setError('Failed to join chat. Please try again.');
+      } else {
+        setError(null);
+      }
+      
+      return joined;
+    } catch (err: any) {
+      console.error('Error joining chat:', err);
+      setError(err.message || 'Failed to join chat');
+      return false;
+    }
   }, []);
 
   // Send message
