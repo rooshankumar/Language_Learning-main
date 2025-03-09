@@ -4,17 +4,20 @@ import { authOptions } from "@/lib/auth";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
-export async function GET(
-  req: Request,
-  { params }: { params: { chatId: string } }
-) {
+// Define correct type for route parameters
+interface Context {
+  params: { chatId: string };
+}
+
+export async function GET(req: Request, context: Context) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!params?.chatId) {
+    const { chatId } = context.params;
+    if (!chatId) {
       return NextResponse.json({ error: "Chat ID is required" }, { status: 400 });
     }
 
@@ -22,7 +25,7 @@ export async function GET(
     const db = client.db();
 
     try {
-      const chatObjectId = new ObjectId(params.chatId);
+      const chatObjectId = new ObjectId(chatId);
 
       // Check if the user is a participant in this chat
       const chat = await db.collection("chats").findOne({
@@ -39,7 +42,7 @@ export async function GET(
 
       // Fetch messages for this chat
       const messages = await db.collection("messages")
-        .find({ chatId: params.chatId })
+        .find({ chatId: chatId })
         .sort({ createdAt: 1 })
         .toArray();
 
