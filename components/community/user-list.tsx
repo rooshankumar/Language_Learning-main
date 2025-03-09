@@ -1,119 +1,121 @@
 
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import UserCard from "./user-card";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Card, CardContent } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { MessageSquare } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 
-interface User {
-  _id: string;
-  name: string;
-  email: string;
-  image?: string;
-  bio?: string;
-  nativeLanguage?: string;
-  learningLanguage?: string;
-  lastSeen?: string;
-  online?: boolean;
+type User = {
+  _id: string
+  name: string
+  email: string
+  image?: string
+  languages?: string[]
+  level?: string
+  streakCount?: number
 }
 
-export function UserList({ searchQuery }: { searchQuery: string }) {
-  const router = useRouter();
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function UserList() {
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await fetch("/api/community/users", {
-          cache: "no-store"
-        });
-        
+        const response = await fetch('/api/community/users')
         if (!response.ok) {
-          throw new Error("Failed to fetch users");
+          throw new Error('Failed to fetch users')
         }
-        
-        const data = await response.json();
-        setUsers(data);
+        const data = await response.json()
+        setUsers(data)
       } catch (error) {
-        console.error("Error fetching users:", error);
+        console.error('Error fetching users:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load community members",
+          variant: "destructive",
+        })
       } finally {
-        setIsLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    fetchUsers();
-  }, []);
+    fetchUsers()
+  }, [])
 
-  // Filter users based on search query
-  const filteredUsers = searchQuery
-    ? users.filter(
-        (user) =>
-          user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.bio?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.nativeLanguage?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.learningLanguage?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : users;
-
-  const handleStartChat = async (userId: string) => {
+  const startChat = async (userId: string) => {
     try {
-      // Show loading state
-      setIsLoading(true);
-      
-      const response = await fetch("/api/chat/create", {
-        method: "POST",
+      const response = await fetch('/api/chat/create', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ otherUserId: userId }),
-      });
+        body: JSON.stringify({ receiverId: userId }),
+      })
 
       if (!response.ok) {
-        throw new Error("Failed to create chat");
+        throw new Error('Failed to create chat')
       }
 
-      const data = await response.json();
-      router.push(`/chat/${data.chatId}`);
+      const { chatId } = await response.json()
+      router.push(`/chat/${chatId}`)
     } catch (error) {
-      console.error("Error starting chat:", error);
-      alert("Failed to start chat. Please try again.");
-    } finally {
-      setIsLoading(false);
+      console.error('Error starting chat:', error)
+      toast({
+        title: "Error",
+        description: "Failed to start conversation",
+        variant: "destructive",
+      })
     }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="border rounded-lg p-4 h-48 animate-pulse">
-            <div className="flex items-center space-x-4">
-              <div className="h-12 w-12 rounded-full bg-gray-200"></div>
-              <div className="h-4 w-24 bg-gray-200 rounded"></div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
   }
 
-  if (filteredUsers.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground">No users found matching your search criteria.</p>
-      </div>
-    );
+  if (loading) {
+    return <div className="flex justify-center p-6">Loading community members...</div>
+  }
+
+  if (users.length === 0) {
+    return <div className="text-center p-6">No other users found in the community.</div>
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {filteredUsers.map((user) => (
-        <UserCard
-          key={user._id}
-          user={user}
-        />
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {users.map((user) => (
+        <Card key={user._id} className="overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-12 w-12">
+                <AvatarImage src={user.image || ''} alt={user.name} />
+                <AvatarFallback>{user.name?.[0]}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 space-y-1">
+                <h3 className="font-medium text-sm">{user.name}</h3>
+                <p className="text-xs text-muted-foreground">
+                  {user.languages?.join(', ') || 'No languages specified'}
+                </p>
+                <div className="flex items-center text-xs text-muted-foreground">
+                  <span className="mr-2">Level: {user.level || 'Beginner'}</span>
+                  {user.streakCount && user.streakCount > 0 && (
+                    <span>🔥 {user.streakCount} day streak</span>
+                  )}
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-primary"
+                onClick={() => startChat(user._id)}
+              >
+                <MessageSquare className="h-5 w-5" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ))}
     </div>
-  );
+  )
 }

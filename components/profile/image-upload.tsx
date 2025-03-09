@@ -1,86 +1,101 @@
+
 "use client"
 
 import { useState, useRef } from 'react'
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Card, CardContent } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
-import Image from "next/image"
+import { useSession } from "next-auth/react"
 
-export function ImageUpload({ onUpload, initialImage }) {
-  const [image, setImage] = useState(initialImage || null)
+export function ImageUpload() {
+  const { data: session, update } = useSession()
   const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef(null)
+  const [profileImage, setProfileImage] = useState(session?.user?.image || "")
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleImageClick = () => {
-    fileInputRef.current?.click()
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
   }
 
-  const handleFileChange = async (e) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate file type
-    if (!file.type.includes('image')) {
+    // Check file size (limit to 5MB)
+    if (file.size > 5 * 1024 * 1024) {
       toast({
-        title: "Invalid file type",
-        description: "Please upload an image file",
-        variant: "destructive"
+        title: "File too large",
+        description: "Please select an image smaller than 5MB",
+        variant: "destructive",
       })
       return
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    // Check file type
+    if (!file.type.startsWith('image/')) {
       toast({
-        title: "File too large",
-        description: "Image must be less than 5MB",
-        variant: "destructive"
+        title: "Invalid file type",
+        description: "Please select an image file",
+        variant: "destructive",
       })
       return
     }
 
     try {
       setUploading(true)
-
-      // Create FormData
+      
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('upload_preset', 'language_app_uploads')
-
-      // Upload to Cloudinary
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
+      formData.append('upload_preset', 'my_language_app')
+      
+      const response = await fetch('https://api.cloudinary.com/v1_1/dx6ulcmub/image/upload', {
         method: 'POST',
-        body: formData
+        body: formData,
       })
-
+      
       if (!response.ok) {
-        throw new Error('Failed to upload image')
+        throw new Error('Network response was not ok')
       }
-
+      
       const data = await response.json()
-
-      // Set the uploaded image URL
-      setImage(data.secure_url)
-
-      // Call the onUpload callback with the URL
-      if (onUpload) {
-        onUpload(data.secure_url)
+      setProfileImage(data.secure_url)
+      
+      // Update user profile in the database
+      const updateResponse = await fetch('/api/users/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image: data.secure_url }),
+      })
+      
+      if (!updateResponse.ok) {
+        throw new Error('Failed to update profile')
       }
-
+      
+      // Update the session
+      await update({
+        ...session,
+        user: {
+          ...session?.user,
+          image: data.secure_url,
+        },
+      })
+      
       toast({
-        title: "Upload successful",
-        description: "Your image has been uploaded",
-        variant: "default"
+        title: "Success",
+        description: "Profile image updated successfully",
       })
     } catch (error) {
       console.error('Error uploading image:', error)
       toast({
-        title: "Upload failed",
-        description: error.message || "Something went wrong",
-        variant: "destructive"
+        title: "Error",
+        description: "Failed to upload image. Please try again.",
+        variant: "destructive",
       })
     } finally {
       setUploading(false)
@@ -89,43 +104,41 @@ export function ImageUpload({ onUpload, initialImage }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col items-center gap-4">
-        <Card className="relative w-32 h-32 overflow-hidden cursor-pointer" onClick={handleImageClick}>
-          {image ? (
-            <Image 
-              src={image} 
-              alt="Profile" 
-              fill 
-              className="object-cover" 
-            />
-          ) : (
-            <Avatar className="w-full h-full">
-              <AvatarFallback>
-                {uploading ? "..." : "?"}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center justify-center space-y-4">
+            <Avatar 
+              className="h-24 w-24 cursor-pointer" 
+              onClick={handleImageClick}
+            >
+              <AvatarImage src={profileImage} alt="Profile" />
+              <AvatarFallback className="text-lg">
+                {session?.user?.name?.charAt(0) || "U"}
               </AvatarFallback>
             </Avatar>
-          )}
-        </Card>
-
-        <div className="flex flex-col items-center">
-          <Input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            accept="image/*"
-            onChange={handleFileChange}
-            disabled={uploading}
-          />
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleImageClick}
-            disabled={uploading}
-          >
-            {uploading ? "Uploading..." : "Change Image"}
-          </Button>
-        </div>
-      </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept="image/*"
+              onChange={handleFileChange}
+            />
+            <div className="text-center">
+              <Label htmlFor="picture" className="text-sm text-muted-foreground block mb-2">
+                Profile Picture
+              </Label>
+              <Button 
+                onClick={handleImageClick}
+                variant="outline" 
+                size="sm" 
+                disabled={uploading}
+              >
+                {uploading ? "Uploading..." : "Change Photo"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

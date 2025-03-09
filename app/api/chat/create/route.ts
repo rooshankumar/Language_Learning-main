@@ -1,43 +1,28 @@
-
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import clientPromise from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
+import { connectToDB } from "@/lib/mongodb";
+import Chat from "@/models/Chat";
+import User from "@/models/User";
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
+    await connectToDB();
+
     const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { otherUserId } = await req.json();
-    
-    if (!otherUserId) {
-      return NextResponse.json({ error: "Missing otherUserId" }, { status: 400 });
+    const { receiverId } = await request.json();
+    if (!receiverId) {
+      return NextResponse.json({ error: "Receiver ID is required" }, { status: 400 });
     }
 
-    const client = await clientPromise;
-    const db = client.db();
-    
-    // Get current user ID
-    const currentUserEmail = session.user.email;
-    const currentUser = await db.collection("users").findOne({ email: currentUserEmail });
-    
-    if (!currentUser) {
-      return NextResponse.json({ error: "Current user not found" }, { status: 404 });
-    }
-
-    const currentUserId = currentUser._id;
-    const otherUserObjectId = new ObjectId(otherUserId);
-    
     // Check if chat already exists
-    const existingChat = await db.collection("chats").findOne({
+    const existingChat = await Chat.findOne({
       participants: { 
-        $all: [currentUserId, otherUserObjectId],
-        $size: 2
+        $all: [session.user.id, receiverId] 
       }
     });
 
@@ -45,18 +30,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ chatId: existingChat._id });
     }
 
-    // Create new chat
-    const newChat = {
-      participants: [currentUserId, otherUserObjectId],
-      messages: [],
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    // Verify receiver exists
+    const receiver = await User.findById(receiverId);
+    if (!receiver) {
+      return NextResponse.json({ error: "Receiver not found" }, { status: 404 });
+    }
 
-    const result = await db.collection("chats").insertOne(newChat);
-    
-    return NextResponse.json({ chatId: result.insertedId });
-    
+    // Create new chat
+    const newChat = await Chat.create({
+      participants: [session.user.id, receiverId],
+      messages: []
+    });
+
+    return NextResponse.json({ chatId: newChat._id });
   } catch (error) {
     console.error("Error creating chat:", error);
     return NextResponse.json({ error: "Failed to create chat" }, { status: 500 });
