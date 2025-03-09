@@ -1,13 +1,21 @@
 
-/** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    // serverExternalPackages removed as it's not valid in Next.js 15+
-  },
-  images: {
-    domains: ['res.cloudinary.com'],
-  },
   reactStrictMode: true,
+  swcMinify: true,
+  images: {
+    domains: ['lh3.googleusercontent.com', 'res.cloudinary.com'],
+  },
+  webpack: (config) => {
+    config.experiments = { ...config.experiments, topLevelAwait: true };
+    return config;
+  },
+  // Optimize chunk size and improve loading
+  experimental: {
+    optimizeCss: true,
+    scrollRestoration: true,
+  },
+  // Fix for mobile devices
+  poweredByHeader: false,
 };
 
 export default nextConfig;
