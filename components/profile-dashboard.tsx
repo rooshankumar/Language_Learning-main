@@ -61,7 +61,14 @@ export function ProfileDashboard() {
         const response = await fetch('/api/user/profile');
         
         if (!response.ok) {
-          console.error("Error fetching profile:", response.status, response.statusText);
+          const errorText = await response.text().catch(() => '');
+          console.error("Error fetching profile:", response.status, response.statusText, errorText);
+          
+          toast({
+            title: "Error loading profile",
+            description: `Status: ${response.status} - ${response.statusText || 'Unknown error'}`,
+            variant: "destructive"
+          });
           return;
         }
         
@@ -82,14 +89,24 @@ export function ProfileDashboard() {
             interests: data.user.interests || [],
             country: data.user.country || '',
           });
+          
+          toast({
+            title: "Profile loaded",
+            description: "Your profile has been loaded successfully"
+          });
         }
       } catch (error) {
         console.error("Error fetching user profile:", error);
+        toast({
+          title: "Error loading profile",
+          description: error instanceof Error ? error.message : "Failed to load profile data. Please try again.",
+          variant: "destructive"
+        });
       }
     };
     
     fetchUserProfile();
-  }, [updateUser]);
+  }, [updateUser, toast]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target

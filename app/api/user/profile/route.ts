@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getServerSession } from "next-auth";
@@ -14,7 +15,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await connectToDatabase();
+    try {
+      await connectToDatabase();
+    } catch (dbError) {
+      console.error("Database connection error:", dbError);
+      return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
+    }
 
     // Find the user by email
     const user = await User.findOne({ email: session.user.email });
@@ -42,7 +48,12 @@ export async function PUT(request: Request) {
 
     const data = await request.json();
 
-    await connectToDatabase();
+    try {
+      await connectToDatabase();
+    } catch (dbError) {
+      console.error("Database connection error:", dbError);
+      return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
+    }
 
     // Find and update the user
     const updatedUser = await User.findOneAndUpdate(
@@ -55,11 +66,8 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Return updated user data in a consistent format
-    return NextResponse.json({ 
-      user: updatedUser.toObject(),
-      message: 'Profile updated successfully' 
-    });
+    // Convert to plain object and return
+    return NextResponse.json({ user: updatedUser.toObject() });
   } catch (error) {
     console.error("Error updating profile:", error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

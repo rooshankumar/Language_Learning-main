@@ -29,6 +29,19 @@ if (process.env.NODE_ENV === 'development') {
   clientPromise = client.connect();
 }
 
+// Helper function to verify MongoDB connection
+export async function verifyDbConnection() {
+  try {
+    const client = await clientPromise;
+    await client.db().command({ ping: 1 });
+    console.log("MongoDB connection successful!");
+    return true;
+  } catch (error) {
+    console.error("MongoDB connection failed:", error);
+    return false;
+  }
+}
+
 // Export a module-scoped MongoClient promise. By doing this in a
 // separate module, the client can be shared across functions.
 export default clientPromise;
