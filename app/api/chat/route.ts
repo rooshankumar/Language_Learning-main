@@ -1,7 +1,8 @@
+
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import clientPromise from "@/lib/mongodb";
+import { connectToDatabase } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
 export async function GET(req: Request) {
@@ -15,10 +16,20 @@ export async function GET(req: Request) {
       );
     }
 
-    const { db } = await clientPromise;
+    const { db } = await connectToDatabase();
 
     const userId = session.user.id;
-    const userObjectId = new ObjectId(userId);
+    let userObjectId;
+    
+    try {
+      userObjectId = new ObjectId(userId);
+    } catch (error) {
+      console.error("Invalid ObjectId format:", error);
+      return NextResponse.json(
+        { error: "Invalid user ID format" },
+        { status: 400 }
+      );
+    }
 
     // Fetch all chats where the current user is a participant
     const chats = await db.collection("chats")
@@ -48,7 +59,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const { targetUserId } = await req.json();
+    const body = await req.json();
+    const { targetUserId } = body;
+    
     if (!targetUserId) {
       return NextResponse.json(
         { error: "Target user ID is required" },
@@ -56,34 +69,42 @@ export async function POST(req: Request) {
       );
     }
 
-    const { db } = await clientPromise;
+    const { db } = await connectToDatabase();
+    
+    let userObjectId, targetUserObjectId;
+    try {
+      userObjectId = new ObjectId(session.user.id);
+      targetUserObjectId = new ObjectId(targetUserId);
+    } catch (error) {
+      console.error("Invalid ObjectId format:", error);
+      return NextResponse.json(
+        { error: "Invalid user ID format" },
+        { status: 400 }
+      );
+    }
 
-    const userId = session.user.id;
-    const userObjectId = new ObjectId(userId);
-    const targetUserObjectId = new ObjectId(targetUserId);
-
-    // Check if a chat already exists between these users
+    // Check if chat already exists
     const existingChat = await db.collection("chats").findOne({
-      participants: {
-        $all: [userObjectId, targetUserObjectId],
-        $size: 2
-      }
+      participants: { $all: [userObjectId, targetUserObjectId] }
     });
 
     if (existingChat) {
       return NextResponse.json(existingChat);
     }
 
-    // Create a new chat
+    // Create new chat
     const newChat = {
       participants: [userObjectId, targetUserObjectId],
-      messages: [],
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
     const result = await db.collection("chats").insertOne(newChat);
-    const chat = await db.collection("chats").findOne({ _id: result.insertedId });
+    
+    // Get the complete chat object with the ID
+    const chat = await db.collection("chats").findOne({
+      _id: result.insertedId
+    });
 
     return NextResponse.json(chat);
   } catch (error) {

@@ -34,10 +34,10 @@ export async function verifyDbConnection() {
   try {
     const client = await clientPromise;
     await client.db().command({ ping: 1 });
-    console.log("MongoDB connection successful!");
+    console.log("✅ MongoDB connection successful!");
     return true;
   } catch (error) {
-    console.error("MongoDB connection failed:", error);
+    console.error("❌ MongoDB connection failed:", error);
     return false;
   }
 }
@@ -48,7 +48,12 @@ export default clientPromise;
 
 // This is the function needed for your route handlers
 export async function connectToDatabase() {
-  const client = await clientPromise;
-  const db = client.db();
-  return { db, client };
+  try {
+    const client = await clientPromise;
+    const db = client.db();
+    return { db, client };
+  } catch (error) {
+    console.error("❌ Failed to connect to database:", error);
+    throw new Error("Database connection failed");
+  }
 }
