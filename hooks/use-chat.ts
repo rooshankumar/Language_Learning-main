@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import chatService, { Message } from '@/lib/chat-service';
+import chatService, { Message, createChat } from '@/lib/chat-service';
 import { useSession } from 'next-auth/react';
 
 export interface ChatHookReturn {
@@ -19,40 +19,31 @@ export interface ChatHookReturn {
 
 export async function createChatWithUser(userId: string): Promise<string | null> {
   try {
+    if (!userId || userId.trim() === '') {
+      throw new Error('Valid user ID is required');
+    }
+    
     console.log('Creating chat with user ID:', userId);
     
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ participantId: userId }),
-    });
-
-    const data = await response.json();
-    console.log('Chat creation API response:', data);
-
-    if (!response.ok) {
-      console.error('API returned error:', data.error || 'Unknown server error');
-      throw new Error(data.error || 'Failed to create chat');
-    }
-
-    // More robust check for chatId in different possible response formats
-    const chatId = data.chatId || 
-                  (data._id && typeof data._id === 'string' ? data._id : 
-                   data._id && typeof data._id === 'object' ? data._id.toString() : null);
+    // Use the helper function from chat-service.ts instead for consistent error handling
+    const result = await createChat(userId);
     
-    if (!chatId) {
-      console.error('No chat ID found in API response:', data);
+    if (!result.success) {
+      console.error('Chat creation failed:', result.error);
+      throw new Error(result.error || 'Failed to create chat');
+    }
+    
+    if (!result.chatId) {
+      console.error('No chat ID returned from createChat function');
       throw new Error('No chat ID returned from the server');
     }
-
-    console.log('Successfully created/found chat with ID:', chatId);
-    return chatId;
+    
+    console.log('Successfully created/found chat with ID:', result.chatId);
+    return result.chatId;
   } catch (error: any) {
-    console.error('Error creating chat:', error.message || String(error));
-    // Prevent silent failures by returning a helpful error message
-    throw new Error(error.message || 'Failed to create chat');
+    console.error('Error in createChatWithUser:', error.message || String(error));
+    // Rethrow with more details but still prevent silent failures
+    throw new Error(`Failed to create chat: ${error.message || 'Unknown error'}`);
   }
 }
 

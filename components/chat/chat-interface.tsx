@@ -245,12 +245,5 @@ export function ChatInterface({
 }
 
 // Dummy function - needs to be replaced with actual implementation
-const createChatWithUser = async (userId: string): Promise<string | undefined> => {
-  // Replace with actual API call
-  //Simulate success
-  return "123";
-  //Simulate failure
-  //return undefined;
-  //Simulate error
-  //throw new Error("API Error");
-};
+// Import the actual function instead of using a mock
+import { createChatWithUser } from '@/hooks/use-chat';

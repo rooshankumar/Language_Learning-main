@@ -250,6 +250,10 @@ export async function createChat(participantId: string) {
       body: JSON.stringify({ participantId }),
     });
 
+    // Log full response details for debugging
+    console.log('Chat creation API status:', response.status);
+    console.log('Chat creation API status text:', response.statusText);
+    
     const data = await response.json();
     console.log('Chat creation API full response:', data);
     
@@ -272,7 +276,7 @@ export async function createChat(participantId: string) {
     return { success: true, chatId, data };
   } catch (error: any) {
     console.error('Error creating chat:', error);
-    return { success: false, error: error.message || 'An error occurred' };
+    return { success: false, error: error.message || 'An error occurred', details: error.stack };
   }
 }
 

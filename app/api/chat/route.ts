@@ -7,9 +7,11 @@ import { ObjectId } from 'mongodb';
 
 export async function POST(req: Request) {
   try {
+    console.log("Chat creation API called");
     const session = await getServerSession(authOptions);
     
     if (!session?.user) {
+      console.log("Unauthorized: No session user");
       return NextResponse.json(
         { error: "You must be logged in to create a chat" },
         { status: 401 }
@@ -17,9 +19,12 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+    console.log("Request body:", body);
+    
     const participantId = body.participantId;
     
     if (!participantId) {
+      console.log("Missing participantId in request");
       return NextResponse.json(
         { error: "Participant ID is required" },
         { status: 400 }
@@ -46,10 +51,7 @@ export async function POST(req: Request) {
     // Check if chat already exists between these users
     const existingChat = await db.collection("chats").findOne({
       participants: {
-        $all: [
-          { $elemMatch: { $eq: currentUserId } },
-          { $elemMatch: { $eq: otherUserId } }
-        ],
+        $all: [currentUserId, otherUserId],
         $size: 2
       }
     });
@@ -58,6 +60,7 @@ export async function POST(req: Request) {
       console.log("Found existing chat:", existingChat._id.toString());
       return NextResponse.json({ 
         chatId: existingChat._id.toString(),
+        _id: existingChat._id.toString(),
         message: "Existing chat found" 
       });
     }
@@ -65,11 +68,13 @@ export async function POST(req: Request) {
     // Create a new chat
     const newChat = {
       participants: [currentUserId, otherUserId],
+      messages: [],
       createdBy: currentUserId,
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
+    console.log("Creating new chat with data:", newChat);
     const result = await db.collection("chats").insertOne(newChat);
     
     if (!result.acknowledged || !result.insertedId) {
