@@ -11,18 +11,17 @@ export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean>(false)
 
   useIsomorphicLayoutEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-    const onChange = () => {
+    const checkMobile = () => {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     }
     
     // Set initial value
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    checkMobile()
     
-    // Modern API
-    mql.addEventListener("change", onChange)
+    // Add event listener
+    window.addEventListener("resize", checkMobile)
     
-    return () => mql.removeEventListener("change", onChange)
+    return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
   return isMobile
