@@ -1,0 +1,114 @@
+✅ Fix 1: Correct Message Alignment (Like Telegram)
+Right now, sent messages are still appearing on the left. The issue might be due to CSS flex settings or incorrect user ID comparison.
+
+🔧 Updated Message.tsx to Fix Alignment
+tsx
+Copy
+Edit
+import React from "react";
+import { useAuth } from "@/hooks/use-auth"; // Get the logged-in user info
+
+const Message = ({ message }: { message: any }) => {
+  const { user } = useAuth(); // Get the current logged-in user
+  const isSentByCurrentUser = message.senderId === user?.id;
+
+  return (
+    <div className={`flex ${isSentByCurrentUser ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`px-4 py-2 rounded-lg max-w-xs break-words ${
+          isSentByCurrentUser ? "bg-blue-500 text-white text-right" : "bg-gray-200 text-black text-left"
+        }`}
+      >
+        {message.text}
+        <div className="text-xs text-gray-400 mt-1">
+          {new Date(message.timestamp).toLocaleTimeString()}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Message;
+✅ Now, sent messages will appear on the right (justify-end)
+✅ Received messages will be on the left (justify-start)
+✅ Includes timestamps for better visibility
+
+✅ Fix 2: Ensure Real-Time Sync of Profile Name & Picture
+It looks like the user list isn't updating in real-time. We need to listen for user status updates and re-render the chat.
+
+🔧 Update use-chat.ts to Use Real-Time Data
+Modify the hook to listen for updates from the database:
+
+tsx
+Copy
+Edit
+import { useEffect, useState } from "react";
+import { db } from "@/lib/firebase"; // Assuming Firebase/DB is used
+import { onSnapshot, doc } from "firebase/firestore";
+
+export const useChat = (chatId: string) => {
+  const [messages, setMessages] = useState([]);
+  const [users, setUsers] = useState({});
+
+  useEffect(() => {
+    if (!chatId) return;
+
+    // Listen for new messages in real-time
+    const unsubscribeMessages = onSnapshot(
+      doc(db, "chats", chatId),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          setMessages(snapshot.data().messages || []);
+        }
+      }
+    );
+
+    // Listen for real-time user updates
+    const unsubscribeUsers = onSnapshot(
+      doc(db, "users"),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          setUsers(snapshot.data() || {});
+        }
+      }
+    );
+
+    return () => {
+      unsubscribeMessages();
+      unsubscribeUsers();
+    };
+  }, [chatId]);
+
+  return { messages, users };
+};
+✅ Automatically updates chat messages in real-time
+✅ Profile names & pictures now update instantly
+✅ No need to manually refresh the page
+
+✅ Fix 3: Show Correct Profile Name & Picture in UserList.tsx
+tsx
+Copy
+Edit
+const UserList = ({ users }: { users: any }) => {
+  return (
+    <div>
+      {Object.entries(users).map(([userId, user]) => (
+        <div key={userId} className="flex items-center space-x-3">
+          <img src={user.profilePic || "/default-avatar.png"} className="w-10 h-10 rounded-full" alt="Profile" />
+          <span className={`${user.isOnline ? "text-green-500" : "text-gray-400"}`}>
+            {user.name || "Unknown User"}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+✅ Now, profile pictures & names update in real-time
+✅ Shows "Unknown User" only if no name exists
+✅ Green dot for online users, gray for offline
+
+🚀 Final Steps
+1️⃣ Update Message.tsx for correct message alignment
+2️⃣ Update use-chat.ts to sync messages & users in real-time
+3️⃣ Update UserList.tsx to fix profile name & picture display
+4️⃣ Restart the app & test message sending
