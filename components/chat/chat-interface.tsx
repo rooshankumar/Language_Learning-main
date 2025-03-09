@@ -1,210 +1,148 @@
-
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import useChat from '@/hooks/use-chat';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
-import { Send, Paperclip } from 'lucide-react';
+import { Send, Paperclip, Smile } from 'lucide-react';
 import { format } from 'date-fns';
+import data from '@emoji-mart/data';
+import Picker from '@emoji-mart/react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface ChatInterfaceProps {
-  chatId: string;
-  recipientName?: string;
-  recipientImage?: string;
+  onSendMessage: (message: string) => void;
+  onTyping?: (isTyping: boolean) => void;
+  disabled?: boolean;
 }
 
-export function ChatInterface({ chatId, recipientName, recipientImage }: ChatInterfaceProps) {
-  const { data: session } = useSession();
-  const router = useRouter();
-  const [newMessage, setNewMessage] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  const { 
-    messages, 
-    isConnected, 
-    isTyping, 
-    sendMessage, 
-    loadChatHistory, 
-    joinChat, 
-    setTyping, 
-    error 
-  } = useChat();
+export function ChatInterface({ onSendMessage, onTyping, disabled = false }: ChatInterfaceProps) {
+  const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Effect to join the chat
+  // Handle typing indicator
   useEffect(() => {
-    if (!chatId || !session?.user) return;
-    
-    const cleanup = joinChat(chatId);
-    loadChatHistory(chatId);
-    
-    return cleanup;
-  }, [chatId, session?.user, joinChat, loadChatHistory]);
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        if (onTyping) onTyping(false);
+      }
+    };
+  }, [onTyping]);
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessage(e.target.value);
 
-  // Handle errors
-  useEffect(() => {
-    if (error) {
-      toast({
-        title: "Chat Error",
-        description: error,
-        variant: "destructive",
-      });
+    // Handle typing indicator
+    if (onTyping) {
+      onTyping(true);
+
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Set new timeout
+      typingTimeoutRef.current = setTimeout(() => {
+        onTyping(false);
+        typingTimeoutRef.current = null;
+      }, 2000);
     }
-  }, [error]);
-
-  // Handle message input and typing indicator
-  const handleMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewMessage(e.target.value);
-    setTyping(chatId, e.target.value.length > 0);
   };
 
-  // Send message
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || !chatId || !session?.user) return;
-    
-    setIsLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!message.trim()) return;
+
     try {
-      const sent = sendMessage(newMessage, chatId);
-      if (sent) {
-        setNewMessage('');
-        setTyping(chatId, false);
-      } else {
-        toast({
-          title: "Failed to send message",
-          description: "Please try again",
-          variant: "destructive",
-        });
+      setIsLoading(true);
+      onSendMessage(message.trim());
+      setMessage('');
+
+      // Clear typing indicator
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+        if (onTyping) onTyping(false);
       }
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error('Error sending message:', error);
       toast({
-        title: "Error",
-        description: "Failed to send message",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to send message. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
+      inputRef.current?.focus();
     }
   };
 
-  // Handle pressing Enter to send
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
+  const handleEmojiSelect = (emoji: any) => {
+    setMessage(prev => prev + emoji.native);
+    inputRef.current?.focus();
   };
-
-  if (!session?.user) {
-    return <div className="flex items-center justify-center h-full">Please sign in to use chat</div>;
-  }
 
   return (
-    <Card className="flex flex-col h-full border-0 shadow-none">
-      <CardHeader className="border-b">
-        <div className="flex items-center space-x-4">
-          <Avatar>
-            <AvatarImage src={recipientImage || "/placeholder-user.jpg"} alt={recipientName} />
-            <AvatarFallback>{recipientName?.charAt(0) || "U"}</AvatarFallback>
-          </Avatar>
-          <div>
-            <CardTitle>{recipientName || "Chat"}</CardTitle>
-            {Object.values(isTyping).some(Boolean) && (
-              <p className="text-sm text-muted-foreground">typing...</p>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      
-      <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            No messages yet. Say hello!
-          </div>
-        ) : (
-          messages.map((message, index) => {
-            const isCurrentUser = message.sender._id === session.user.id;
-            return (
-              <div 
-                key={message._id || index} 
-                className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+    <form onSubmit={handleSubmit} className="flex items-end gap-2">
+      <div className="flex-1 relative">
+        <Input
+          ref={inputRef}
+          placeholder="Type a message..."
+          value={message}
+          onChange={handleInputChange}
+          disabled={isLoading || disabled}
+          className="pr-20"
+        />
+        <div className="absolute right-2 bottom-0 flex items-center h-full">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                disabled={isLoading || disabled}
               >
-                <div className="flex items-start gap-2 max-w-[75%]">
-                  {!isCurrentUser && (
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={message.sender.image || "/placeholder-user.jpg"} alt={message.sender.name} />
-                      <AvatarFallback>{message.sender.name?.charAt(0) || "U"}</AvatarFallback>
-                    </Avatar>
-                  )}
-                  
-                  <div>
-                    <div 
-                      className={`px-4 py-2 rounded-lg ${
-                        isCurrentUser 
-                          ? 'bg-primary text-primary-foreground' 
-                          : 'bg-muted'
-                      }`}
-                    >
-                      {message.text}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(message.createdAt), 'HH:mm')}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
-        <div ref={messagesEndRef} />
-      </CardContent>
-      
-      <CardFooter className="border-t p-4">
-        <div className="flex w-full items-center space-x-2">
-          <Button 
-            size="icon" 
-            variant="ghost" 
-            className="rounded-full" 
+                <Smile className="h-5 w-5" />
+                <span className="sr-only">Emoji</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Picker 
+                data={data} 
+                onEmojiSelect={handleEmojiSelect}
+                theme="light"
+                emojiSize={20}
+                emojiButtonSize={28}
+              />
+            </PopoverContent>
+          </Popover>
+          <Button
             type="button"
-            disabled={isLoading}
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            disabled={isLoading || disabled}
           >
             <Paperclip className="h-5 w-5" />
             <span className="sr-only">Attach file</span>
           </Button>
-          
-          <Input
-            placeholder="Type a message..."
-            value={newMessage}
-            onChange={handleMessageChange}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading || !isConnected}
-            className="flex-1"
-          />
-          
-          <Button
-            onClick={handleSendMessage}
-            disabled={!newMessage.trim() || isLoading || !isConnected}
-            size="icon"
-            className="rounded-full"
-          >
-            <Send className="h-5 w-5" />
-            <span className="sr-only">Send</span>
-          </Button>
         </div>
-      </CardFooter>
-    </Card>
+      </div>
+      <Button
+        type="submit"
+        disabled={!message.trim() || isLoading || disabled}
+        size="icon"
+        className="rounded-full"
+      >
+        <Send className="h-5 w-5" />
+        <span className="sr-only">Send</span>
+      </Button>
+    </form>
   );
 }
-
-export default ChatInterface;
