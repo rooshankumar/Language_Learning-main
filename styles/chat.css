@@ -1,4 +1,3 @@
-
 /* Chat message container */
 .chat-messages {
   display: flex;
@@ -24,6 +23,8 @@
   color: white;
   border-bottom-right-radius: 4px;
   text-align: right;
+  align-self: flex-end;
+  margin-left: auto;
 }
 
 /* Received message (from other users) */
@@ -32,6 +33,8 @@
   color: #1f2937;
   border-bottom-left-radius: 4px;
   text-align: left;
+  align-self: flex-start;
+  margin-right: auto;
 }
 
 /* Message metadata (time, status) */

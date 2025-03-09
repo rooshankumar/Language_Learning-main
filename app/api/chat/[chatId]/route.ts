@@ -1,58 +1,30 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
-interface RouteParams {
-  params: {
-    chatId: string;
-  };
-}
-
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { chatId: string } }
-) {
-  // Validate chatId parameter
-  if (!params?.chatId) {
-    console.error("❌ Missing chatId:", params);
-    return NextResponse.json({ error: "Chat ID is required" }, { status: 400 });
-  }
-
-  const chatId = params.chatId; // No need to await params, it's not a Promise
-
-  if (typeof chatId !== 'string') {
-    console.error("❌ Invalid chatId type:", typeof chatId);
-    return NextResponse.json({ error: "Invalid chatId format" }, { status: 400 });
-  }
-
-  console.log("📩 Fetching messages for chat:", chatId);
-  
+export async function GET(request, { params }) {
   try {
-    const { db } = await connectToDatabase();
-    
-    // First verify the chat exists
-    const chat = await db.collection("chats").findOne({
-      _id: new ObjectId(chatId), // Ensure correct ID format
-    });
-
-    if (!chat) {
-      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    if (!params || !params.chatId) {
+      console.error("❌ Missing chatId:", params);
+      return NextResponse.json({ error: "Chat ID is required" }, { status: 400 });
     }
-    
-    // Optimize query with proper indexing and limit
-    const messages = await db.collection("messages")
-      .find({ chatId })
-      .sort({ timestamp: -1 })
-      .limit(100)  // Limit to most recent messages for performance
-      .toArray();
-    
+
+    const chatId = params.chatId;
+    if (typeof chatId !== "string") {
+      console.error("❌ Invalid chatId type:", typeof chatId);
+      return NextResponse.json({ error: "Invalid Chat ID" }, { status: 400 });
+    }
+
+    console.log("📩 Fetching messages for chat:", chatId);
+    const { db } = await connectToDatabase();
+    const messages = await db.collection("messages").find({ chatId }).toArray();
+
     return NextResponse.json({ messages });
   } catch (error) {
-    console.error("❌ Error fetching messages:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("❌ Error fetching messages:", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
@@ -66,7 +38,7 @@ export async function POST(
   }
 
   const chatId = params.chatId;
-  
+
   if (typeof chatId !== 'string') {
     return NextResponse.json({ error: "Invalid chatId format" }, { status: 400 });
   }
@@ -94,7 +66,7 @@ export async function POST(
       },
       timestamp: new Date()
     });
-    
+
     return NextResponse.json({ success: true, messageId: result.insertedId });
   } catch (error) {
     console.error("Error posting message:", error);
@@ -124,9 +96,9 @@ export async function DELETE(
     }
 
     const chatId = params.chatId;
-    
+
     const { db } = await connectToDatabase();
-    
+
     let objectChatId, userId;
     try {
       objectChatId = new ObjectId(chatId);
@@ -151,7 +123,7 @@ export async function DELETE(
         { status: 404 }
       );
     }
-    
+
     // Ensure the chat has an ID in the expected format
     const formattedChat = {
       ...chat,
@@ -161,7 +133,7 @@ export async function DELETE(
 
     // Delete the chat
     const result = await db.collection("chats").deleteOne({ _id: objectChatId });
-    
+
     if (result.deletedCount === 0) {
       return NextResponse.json(
         { error: "Failed to delete chat" },

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
+import { connectToDatabase } from "@/lib/mongodb";
 
 export async function POST(req: Request) {
   try {
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
         JSON.stringify({ 
           error: 'Invalid request body format', 
           success: false,
-          details: parseError.message 
+          details: (parseError as Error).message 
         }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
         JSON.stringify({ 
           error: 'Invalid user ID format', 
           success: false,
-          details: error.message
+          details: (error as Error).message
         }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
@@ -158,5 +159,21 @@ export async function POST(req: Request) {
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
+  }
+}
+
+import { NextResponse } from "next/server";
+import { connectToDatabase } from "@/lib/mongodb";
+
+export async function GET() {
+  try {
+    const { db } = await connectToDatabase();
+    if (!db) throw new Error("Database connection failed");
+
+    const chats = await db.collection("chats").find({}).toArray();
+    return NextResponse.json({ chats });
+  } catch (error) {
+    console.error("❌ Error fetching chats:", (error as Error).message);
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

@@ -121,7 +121,35 @@ export function useChat(): ChatHookReturn {
       setOnlineUsers(users);
     });
 
-    return unsubscribe;
+    // Fetch updated user profiles
+    const fetchUserProfiles = async () => {
+      try {
+        const response = await fetch('/api/users');
+        if (!response.ok) {
+          throw new Error('Failed to fetch updated user profiles');
+        }
+        const data = await response.json();
+        // Update online users with latest profile data
+        if (data.users && Array.isArray(data.users)) {
+          const onlineUserIds = onlineUsers;
+          const updatedOnlineUsers = onlineUserIds.filter(id => 
+            data.users.some(user => user.id === id || user._id === id)
+          );
+          setOnlineUsers(updatedOnlineUsers);
+        }
+      } catch (error) {
+        console.error('Error fetching user profiles:', error);
+      }
+    };
+
+    // Fetch initial data and then set up interval for refreshing
+    fetchUserProfiles();
+    const profileRefreshInterval = setInterval(fetchUserProfiles, 60000); // Refresh every minute
+
+    return () => {
+      unsubscribe();
+      clearInterval(profileRefreshInterval);
+    };
   }, []);
 
   // Handle typing indicators

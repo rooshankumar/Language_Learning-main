@@ -1,31 +1,33 @@
+
 import React from "react";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 
-type MessageBubbleProps = {
-  message: any;
-  isLast?: boolean;
-};
+interface MessageProps {
+  message: {
+    _id: string;
+    senderId: string;
+    text: string;
+    timestamp: string | number | Date;
+  };
+}
 
-const MessageBubble = ({ message, isLast }: MessageBubbleProps) => {
-  const { data: session } = useSession();
-  const isSentByCurrentUser = message.sender?._id === session?.user?.id;
+const MessageBubble = ({ message }: MessageProps) => {
+  const { user } = useAuth();
+  const isSentByCurrentUser = message.senderId === user?.id;
 
   return (
-    <div className={`flex w-full ${isSentByCurrentUser ? "justify-end" : "justify-start"} mb-2`}>
+    <div className={`flex w-full ${isSentByCurrentUser ? "justify-end" : "justify-start"} mb-4`}>
       <div
-        className={`message-bubble ${
-          isSentByCurrentUser ? "sent" : "received"
-        } max-w-[70%]`}
+        className={`px-4 py-2 rounded-lg max-w-xs break-words ${
+          isSentByCurrentUser 
+            ? "bg-blue-500 text-white message-bubble sent" 
+            : "bg-gray-200 text-black message-bubble received"
+        }`}
       >
-        {!isSentByCurrentUser && message.sender?.name && (
-          <div className="text-xs font-medium text-gray-500 mb-1">
-            {message.sender.name}
-          </div>
-        )}
-        <div>{message.content}</div>
-        <div className="message-time text-xs">
-          {message.createdAt && format(new Date(message.createdAt), "h:mm a")}
+        {message.text}
+        <div className="text-xs mt-1 message-meta">
+          {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </div>
       </div>
     </div>

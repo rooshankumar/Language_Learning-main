@@ -1,46 +1,45 @@
+
 import React, { useEffect, useRef } from "react";
 import MessageBubble from "./message-bubble";
 
-type MessageListProps = {
-  messages: any[];
-  loading?: boolean;
-};
+interface Message {
+  _id: string;
+  senderId: string;
+  text: string;
+  timestamp: string | number | Date;
+}
 
-const MessageList = ({ messages, loading = false }: MessageListProps) => {
+interface MessageListProps {
+  messages: Message[];
+  isLoading?: boolean;
+}
+
+const MessageList = ({ messages, isLoading = false }: MessageListProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
+  // Scroll to bottom when messages change
   useEffect(() => {
-    scrollToBottom();
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-full">Loading messages...</div>;
   }
 
   if (!messages || messages.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-500">
-        No messages yet. Start a conversation!
+      <div className="flex justify-center items-center h-full text-muted-foreground">
+        No messages yet. Start the conversation!
       </div>
     );
   }
 
   return (
     <div className="chat-messages">
-      {messages.map((message, index) => (
-        <MessageBubble 
-          key={message._id || index} 
-          message={message} 
-          isLast={index === messages.length - 1} 
-        />
+      {messages.map((message) => (
+        <MessageBubble key={message._id} message={message} />
       ))}
       <div ref={messagesEndRef} />
     </div>
