@@ -1,6 +1,7 @@
 
 run = "npm run dev"
 hidden = [".build", ".config"]
+modules = ["nodejs-20"]
 
 [[deployment.rewrites]]
 from = "/*"
@@ -52,7 +53,7 @@ author = 40138757
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev"
+args = "node server.js"
 
 [[workflows.workflow]]
 name = "Express Chat Server"
