@@ -1,30 +1,25 @@
 
-import { io, Socket } from 'socket.io-client';
-import { v4 as uuidv4 } from 'uuid';
+'use client';
 
-// Message interface
+import { io, Socket } from 'socket.io-client';
+
 export interface Message {
-  _id?: string;
-  text: string;
+  _id: string;
+  chatId: string;
+  content: string;
   sender: {
     _id: string;
     name: string;
     image?: string;
+    profilePic?: string;
   };
   createdAt: Date;
-  readAt?: Date | null;
 }
 
 export interface Chat {
   _id: string;
-  participants: any[];
-  messages: Message[];
-  lastMessage?: {
-    text: string;
-    sender: string;
-    createdAt: Date;
-  };
-  createdBy: string;
+  participants: string[];
+  lastMessage?: Message;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,30 +29,41 @@ class ChatService {
   private userId: string | null = null;
   private username: string | null = null;
   private messageCallbacks: Map<string, (message: Message) => void> = new Map();
-  private onlineUsersCallback: ((users: string[]) => void) | null = null;
   private typingCallbacks: Map<string, (data: {username: string, isTyping: boolean}) => void> = new Map();
+  private onlineUsersCallback: ((users: string[]) => void) | null = null;
   private chatUpdateCallbacks: ((data: any) => void)[] = [];
 
   // Initialize socket connection
   initialize(userId: string, username: string) {
-    if (this.socket) {
-      this.socket.disconnect();
-    }
+    if (this.socket) return; // Already initialized
 
-    // Get the host dynamically based on environment
-    const host = typeof window !== 'undefined' 
-      ? window.location.origin
-      : process.env.NEXT_PUBLIC_API_URL || 'https://mylanguageapp.replit.app';
-
-    this.socket = io(host);
     this.userId = userId;
     this.username = username;
 
+    // Connect to Socket.IO server
+    this.socket = io({
+      path: '/api/socket',
+      reconnectionAttempts: 5,
+      timeout: 10000,
+      auth: {
+        userId,
+        username
+      }
+    });
+
+    // Setup event listeners
     this.socket.on('connect', () => {
       console.log('Socket connected');
-      
-      // Notify server of user login
-      this.socket.emit('user_login', { userId, username });
+    });
+
+    this.socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+    });
+
+    this.socket.on('users_online', (users) => {
+      if (this.onlineUsersCallback) {
+        this.onlineUsersCallback(users);
+      }
     });
 
     this.socket.on('receive_message', (data) => {
@@ -67,16 +73,13 @@ class ChatService {
       }
     });
 
-    this.socket.on('online_users', (users) => {
-      if (this.onlineUsersCallback) {
-        this.onlineUsersCallback(users);
-      }
-    });
-
     this.socket.on('user_typing', (data) => {
       const callback = this.typingCallbacks.get(data.chatId);
       if (callback) {
-        callback(data);
+        callback({
+          username: data.username,
+          isTyping: data.isTyping
+        });
       }
     });
 
@@ -84,29 +87,23 @@ class ChatService {
       this.chatUpdateCallbacks.forEach(callback => callback(data));
     });
 
-    this.socket.on('disconnect', () => {
-      console.log('Socket disconnected');
+    this.socket.on('error', (error) => {
+      console.error('Socket error:', error);
     });
-
-    this.socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-    });
-
-    return this;
   }
 
-  // Join a specific chat room
+  // Join a chat room
   joinChat(chatId: string) {
     if (!this.socket || !this.socket.connected) {
-      console.error('Socket not connected');
+      console.error('Cannot join chat: Socket not connected');
       return;
     }
-    
-    this.socket.emit('join_chat', chatId);
+
+    this.socket.emit('join_chat', { chatId });
   }
 
-  // Send a message to a chat
-  sendMessage(chatId: string, message: string) {
+  // Send a message
+  sendMessage(chatId: string, content: string): boolean {
     if (!this.socket || !this.socket.connected || !this.userId) {
       console.error('Cannot send message: Socket not connected or user not logged in');
       return false;
@@ -114,14 +111,14 @@ class ChatService {
 
     this.socket.emit('send_message', {
       chatId,
-      message,
+      content,
       senderId: this.userId
     });
 
     return true;
   }
 
-  // Subscribe to new messages for a specific chat
+  // Subscribe to messages for a specific chat
   subscribeToMessages(chatId: string, callback: (message: Message) => void) {
     this.messageCallbacks.set(chatId, callback);
     return () => {
@@ -179,40 +176,26 @@ class ChatService {
 const chatService = new ChatService();
 export default chatService;
 
-// Helper function to create a chat with another user
-export async function createChat(userId: string, recipientId: string): Promise<{ success: boolean, chat?: any, error?: string }> {
+// Helper function to create a chat with a user
+export async function createChat(title: string, recipientId: string) {
   try {
     const response = await fetch('/api/chat/create', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ userId: recipientId })
+      body: JSON.stringify({ title, recipientId }),
     });
 
     const data = await response.json();
     
     if (!response.ok) {
-      throw new Error(data.error || 'Failed to create chat');
+      return { success: false, error: data.error || 'Failed to create chat' };
     }
 
     return { success: true, chat: data };
-  } catch (err: any) {
-    console.error('Error creating chat:', err);
-    return { success: false, error: err.message };
-  }
-}
-
-// Helper function for community page to start a chat with another user
-export async function startChat(recipientId: string) {
-  try {
-    const result = await createChat('', recipientId);
-    if (result.success && result.chat) {
-      return result.chat._id;
-    }
-    throw new Error(result.error || 'Unknown error creating chat');
-  } catch (err: any) {
-    console.error('Error starting chat:', err);
-    throw err;
+  } catch (error: any) {
+    console.error('Error creating chat:', error);
+    return { success: false, error: error.message || 'An error occurred' };
   }
 }

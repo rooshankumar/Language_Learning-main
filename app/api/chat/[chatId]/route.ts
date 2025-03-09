@@ -1,8 +1,7 @@
-
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import clientPromise from '@/lib/mongodb';
+import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 export async function GET(
@@ -11,6 +10,7 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
+
     if (!session?.user) {
       return new NextResponse(
         JSON.stringify({ error: "Unauthorized" }),
@@ -18,8 +18,8 @@ export async function GET(
       );
     }
 
-    const chatId = params.chatId;
-    
+    const chatId = await params.chatId;
+
     if (!chatId) {
       return new NextResponse(
         JSON.stringify({ error: "Chat ID is required" }),
@@ -27,24 +27,12 @@ export async function GET(
       );
     }
 
-    const client = await clientPromise;
-    const db = client.db();
-    
-    // Convert chatId to ObjectId
-    let chatObjectId;
-    try {
-      chatObjectId = new ObjectId(chatId);
-    } catch (error) {
-      return new NextResponse(
-        JSON.stringify({ error: "Invalid chat ID format" }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    const { db } = await connectToDatabase();
 
-    // Fetch the chat and check if the user is a participant
+    // Find chat by ID and verify user is a participant
     const chat = await db.collection("chats").findOne({
-      _id: chatObjectId,
-      participants: new ObjectId(session.user.id)
+      _id: new ObjectId(chatId),
+      participants: session.user.id
     });
 
     if (!chat) {
@@ -54,16 +42,11 @@ export async function GET(
       );
     }
 
-    // Format the participants to be strings
-    const formattedChat = {
-      ...chat,
-      participants: chat.participants.map((p: ObjectId) => p.toString())
-    };
-
     return new NextResponse(
-      JSON.stringify(formattedChat),
+      JSON.stringify(chat),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
+
   } catch (error) {
     console.error("Error fetching chat:", error);
     return new NextResponse(

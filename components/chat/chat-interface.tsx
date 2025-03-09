@@ -1,174 +1,157 @@
 
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, FormEvent } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import { Avatar } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Smile } from 'lucide-react';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
-import { useTheme } from 'next-themes';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from '@/components/ui/use-toast';
-import { Send, Paperclip, Smile } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
+import { useSession } from 'next-auth/react';
 
 interface ChatInterfaceProps {
-  onSendMessage: (message: string) => boolean;
-  onTyping?: (isTyping: boolean) => void;
-  isLoading?: boolean;
+  messages: any[];
+  onSendMessage: (message: string) => void;
+  chatPartner: {
+    name: string;
+    image: string;
+    online?: boolean;
+    lastSeen?: Date;
+  } | null;
+  isTyping: { [key: string]: boolean };
 }
 
-export default function ChatInterface({ 
-  onSendMessage, 
-  onTyping,
-  isLoading = false 
-}: ChatInterfaceProps) {
-  const [message, setMessage] = useState('');
-  const [isTypingActive, setIsTypingActive] = useState(false);
+export function ChatInterface({ messages, onSendMessage, chatPartner, isTyping }: ChatInterfaceProps) {
+  const [newMessage, setNewMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { theme } = useTheme();
+  const { data: session } = useSession();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Handle typing indicator
+  // Scroll to bottom when messages change
   useEffect(() => {
-    if (message && !isTypingActive) {
-      setIsTypingActive(true);
-      onTyping?.(true);
-    }
-    
-    // Clear any existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    
-    // Set new timeout
-    typingTimeoutRef.current = setTimeout(() => {
-      if (isTypingActive) {
-        setIsTypingActive(false);
-        onTyping?.(false);
-      }
-    }, 2000);
-    
-    // Cleanup on unmount
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-    };
-  }, [message, isTypingActive, onTyping]);
+    scrollToBottom();
+  }, [messages]);
   
-  const handleSubmit = (e: FormEvent) => {
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim()) return;
-    
-    try {
-      const success = onSendMessage(message.trim());
-      if (success) {
-        setMessage('');
-        setShowEmojiPicker(false);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to send message. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred while sending your message.",
-        variant: "destructive",
-      });
+    if (newMessage.trim()) {
+      onSendMessage(newMessage);
+      setNewMessage('');
     }
   };
-  
-  const handleFileClick = () => {
-    fileInputRef.current?.click();
-  };
-  
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    
-    // Here you would implement file upload
-    toast({
-      title: "Feature Coming Soon",
-      description: "File sharing will be available soon!",
-    });
-  };
-  
-  const handleEmojiSelect = (emoji: any) => {
-    setMessage(prev => prev + emoji.native);
-    // Don't hide picker after selection to allow multiple selections
+
+  const addEmoji = (emoji: any) => {
+    setNewMessage(prev => prev + emoji.native);
+    setShowEmojiPicker(false);
   };
 
   return (
-    <Card className="border-t rounded-none shadow-none">
-      <CardFooter className="p-3">
-        <form onSubmit={handleSubmit} className="flex w-full gap-2 items-end">
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={handleFileChange}
-            multiple
-          />
+    <div className="flex flex-col h-full">
+      {/* Chat Header */}
+      <div className="border-b p-3 flex items-center space-x-3">
+        {chatPartner && (
+          <>
+            <Avatar>
+              <img 
+                src={chatPartner.image || '/placeholder-user.jpg'} 
+                alt={chatPartner.name || 'User'} 
+                className="h-10 w-10 rounded-full object-cover"
+              />
+            </Avatar>
+            <div>
+              <h3 className="font-medium">{chatPartner.name}</h3>
+              <p className="text-xs text-muted-foreground">
+                {chatPartner.online ? 'Online' : chatPartner.lastSeen ? `Last seen ${formatDistanceToNow(new Date(chatPartner.lastSeen))} ago` : 'Offline'}
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+      
+      {/* Chat Messages */}
+      <ScrollArea className="flex-1 p-4">
+        <div className="space-y-4">
+          {messages.map((message, index) => (
+            <div 
+              key={message._id || index} 
+              className={`flex ${message.sender._id === session?.user?.id ? 'justify-end' : 'justify-start'}`}
+            >
+              <Card className={`max-w-[70%] p-3 ${message.sender._id === session?.user?.id ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                {message.sender._id !== session?.user?.id && (
+                  <div className="flex items-center space-x-2 mb-1">
+                    <img 
+                      src={message.sender.profilePic || message.sender.image || '/placeholder-user.jpg'} 
+                      alt={message.sender.name} 
+                      className="h-6 w-6 rounded-full object-cover"
+                    />
+                    <span className="text-xs font-medium">{message.sender.name}</span>
+                  </div>
+                )}
+                <p>{message.content}</p>
+                <p className="text-xs opacity-70 text-right mt-1">
+                  {message.createdAt ? formatDistanceToNow(new Date(message.createdAt), { addSuffix: true }) : ''}
+                </p>
+              </Card>
+            </div>
+          ))}
           
-          <Button
-            variant="outline"
-            size="icon"
-            type="button"
-            onClick={handleFileClick}
-            disabled={isLoading}
-          >
-            <Paperclip className="h-5 w-5" />
-            <span className="sr-only">Attach file</span>
-          </Button>
+          {/* Typing indicator */}
+          {Object.entries(isTyping).map(([username, typing]) => 
+            typing && (
+              <div key={username} className="flex items-center space-x-2 text-sm text-muted-foreground">
+                <span>{username} is typing...</span>
+                <div className="typing-animation">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+            )
+          )}
           
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
+      
+      {/* Message Input */}
+      <div className="border-t p-3">
+        <form onSubmit={handleSubmit} className="flex items-end space-x-2">
           <div className="relative flex-1">
-            <Input
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
+            <Textarea
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type a message..."
-              className="w-full pr-10"
-              disabled={isLoading}
+              className="min-h-[80px] resize-none"
             />
             <Button
               type="button"
               variant="ghost"
-              size="sm"
-              className="absolute right-1 top-1/2 -translate-y-1/2"
+              size="icon"
+              className="absolute bottom-2 right-2"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             >
               <Smile className="h-5 w-5" />
-              <span className="sr-only">Emoji</span>
             </Button>
             
             {showEmojiPicker && (
-              <div className="absolute bottom-full right-0 mb-2 z-10">
-                <Picker 
-                  data={data} 
-                  onEmojiSelect={handleEmojiSelect} 
-                  theme={theme === 'dark' ? 'dark' : 'light'}
-                  previewPosition="none"
-                />
+              <div className="absolute bottom-full right-0 mb-2">
+                <Picker data={data} onEmojiSelect={addEmoji} />
               </div>
             )}
           </div>
-          
-          <Button
-            type="submit"
-            disabled={isLoading || !message.trim()}
-            size="icon"
-            className="rounded-full"
-          >
-            <Send className="h-5 w-5" />
-            <span className="sr-only">Send</span>
-          </Button>
+          <Button type="submit">Send</Button>
         </form>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
+
+export default ChatInterface;
