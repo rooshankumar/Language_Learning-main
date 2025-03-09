@@ -45,3 +45,10 @@ export async function verifyDbConnection() {
 // Export a module-scoped MongoClient promise. By doing this in a
 // separate module, the client can be shared across functions.
 export default clientPromise;
+
+// This is the function needed for your route handlers
+export async function connectToDatabase() {
+  const client = await clientPromise;
+  const db = client.db();
+  return { db, client };
+}

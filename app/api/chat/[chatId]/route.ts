@@ -1,6 +1,5 @@
-
-import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { NextRequest, NextResponse } from "next/server";
+import { connectToDatabase } from "@/lib/mongodb";
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
@@ -11,74 +10,54 @@ interface RouteParams {
   };
 }
 
-export async function GET(req: Request, { params }: RouteParams) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { chatId: string } }
+) {
+  // params is not a Promise, so we don't need to await it
+  const chatId = params.chatId;
+
+  if (!chatId || typeof chatId !== 'string') {
+    console.error("Invalid or missing chatId:", chatId);
+    return NextResponse.json({ error: "Invalid chatId" }, { status: 400 });
+  }
+
+  console.log("Fetching messages for chat:", chatId);
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const chatId = params.chatId;
-    if (!chatId || typeof chatId !== 'string') {
-      return NextResponse.json(
-        { error: "Invalid chat ID" },
-        { status: 400 }
-      );
-    }
-
-    console.log("Fetching chat with ID:", chatId);
-
     const { db } = await connectToDatabase();
-    
-    let objectChatId, userId;
-    try {
-      objectChatId = new ObjectId(chatId);
-      userId = new ObjectId(session.user.id);
-    } catch (error) {
-      console.error("Error converting IDs to ObjectId:", error);
-      return NextResponse.json(
-        { error: "Invalid ID format" },
-        { status: 400 }
-      );
-    }
+    const messages = await db.collection("messages").find({ chatId }).toArray();
+    return NextResponse.json(messages);
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}
 
-    // Get chat and verify user is a participant
-    const chat = await db.collection("chats").findOne({
-      _id: objectChatId,
-      participants: userId
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { chatId: string } }
+) {
+  const chatId = params.chatId;
+
+  if (!chatId || typeof chatId !== 'string') {
+    return NextResponse.json({ error: "Invalid chatId" }, { status: 400 });
+  }
+
+  try {
+    const { db } = await connectToDatabase();
+    const data = await req.json();
+
+    // Add message to database
+    const result = await db.collection("messages").insertOne({
+      chatId,
+      ...data,
+      timestamp: new Date()
     });
 
-    if (!chat) {
-      console.log(`Chat not found or user ${session.user.id} is not a participant`);
-      return NextResponse.json(
-        { error: "Chat not found" },
-        { status: 404 }
-      );
-    }
-
-    // Get participants details
-    const participantIds = chat.participants.map((id: ObjectId) => id);
-    const participants = await db.collection("users")
-      .find({ _id: { $in: participantIds } })
-      .project({ password: 0 }) // Exclude password
-      .toArray();
-
-    // Replace ObjectId participants with actual user data
-    const chatWithParticipants = {
-      ...chat,
-      participants: participants
-    };
-
-    return NextResponse.json(chatWithParticipants);
+    return NextResponse.json({ success: true, messageId: result.insertedId });
   } catch (error) {
-    console.error("Error fetching chat:", error);
-    return NextResponse.json(
-      { error: "Server error when fetching chat", details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
-    );
+    console.error("Error posting message:", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
 
