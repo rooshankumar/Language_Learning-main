@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -22,16 +21,16 @@ export async function createChatWithUser(userId: string): Promise<string | null>
     if (!userId || userId.trim() === '') {
       throw new Error('Valid user ID is required');
     }
-    
+
     console.log('Creating chat with user ID:', userId);
-    
+
     // Use the helper function from chat-service.ts instead for consistent error handling
     const result = await createChat(userId);
-    
+
     if (!result.success) {
       console.error('Chat creation failed:', result.error);
       console.error('Chat creation failure details:', result.data);
-      
+
       // Show more detailed error message
       if (result.error.includes('JSON')) {
         throw new Error(`Server returned invalid data: ${result.error}`);
@@ -39,13 +38,13 @@ export async function createChatWithUser(userId: string): Promise<string | null>
         throw new Error(result.error || 'Failed to create chat');
       }
     }
-    
+
     if (!result.chatId) {
       console.error('No chat ID returned from createChat function');
       console.error('Response data:', result.data);
       throw new Error('No chat ID returned from the server');
     }
-    
+
     console.log('Successfully created/found chat with ID:', result.chatId);
     return result.chatId;
   } catch (error: any) {
@@ -63,7 +62,7 @@ export function useChat(): ChatHookReturn {
   const [error, setError] = useState<string | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState<{ [key: string]: boolean }>({});
-  
+
   const socketInitialized = useRef(false);
   const currentChatId = useRef<string | null>(null);
 
@@ -76,15 +75,15 @@ export function useChat(): ChatHookReturn {
         session.user.id,
         session.user.name || 'Anonymous User'
       );
-      
+
       // Check connection status periodically
       const checkConnection = setInterval(() => {
         setIsConnected(service.isConnected());
       }, 5000);
-      
+
       setIsConnected(service.isConnected());
       socketInitialized.current = true;
-      
+
       // Set up cleanup
       return () => {
         clearInterval(checkConnection);
@@ -100,7 +99,7 @@ export function useChat(): ChatHookReturn {
   // Handle messages
   useEffect(() => {
     if (!currentChatId.current) return;
-    
+
     const unsubscribe = chatService.subscribeToMessages(
       currentChatId.current,
       (message) => {
@@ -112,7 +111,7 @@ export function useChat(): ChatHookReturn {
         });
       }
     );
-    
+
     return unsubscribe;
   }, [currentChatId.current]);
 
@@ -121,14 +120,14 @@ export function useChat(): ChatHookReturn {
     const unsubscribe = chatService.subscribeToOnlineUsers((users) => {
       setOnlineUsers(users);
     });
-    
+
     return unsubscribe;
   }, []);
 
   // Handle typing indicators
   useEffect(() => {
     if (!currentChatId.current) return;
-    
+
     const unsubscribe = chatService.subscribeToTypingIndicator(
       currentChatId.current,
       (data) => {
@@ -138,7 +137,7 @@ export function useChat(): ChatHookReturn {
         }));
       }
     );
-    
+
     return unsubscribe;
   }, [currentChatId.current]);
 
@@ -146,12 +145,12 @@ export function useChat(): ChatHookReturn {
   const loadChatHistory = useCallback(async (chatId: string) => {
     try {
       const response = await fetch(`/api/chat/${chatId}/messages`);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch messages');
       }
-      
+
       const data = await response.json();
       setMessages(data);
     } catch (error: any) {
@@ -168,36 +167,36 @@ export function useChat(): ChatHookReturn {
       setError('Invalid chat ID');
       return false;
     }
-    
+
     try {
       // Update connection status before attempting to join
       setIsConnected(chatService.isConnected());
-      
+
       // If not connected, try to reset the service
       if (!chatService.isConnected() && socketInitialized.current) {
         console.warn('⚠️ Socket disconnected, attempting to reconnect before joining chat');
         chatService.reset();
-        
+
         // Brief delay to allow reset to take effect
         await new Promise(resolve => setTimeout(resolve, 1000));
         setIsConnected(chatService.isConnected());
       }
-      
+
       currentChatId.current = chatId;
       const joined = await chatService.joinChat(chatId);
-      
+
       // Update connection status after join attempt
       setIsConnected(chatService.isConnected());
-      
+
       // Reset typing indicators when joining a new chat
       setIsTyping({});
-      
+
       if (!joined) {
         setError('Failed to join chat. Please try again.');
       } else {
         setError(null);
       }
-      
+
       return joined;
     } catch (err: any) {
       console.error('Error joining chat:', err);
@@ -217,6 +216,15 @@ export function useChat(): ChatHookReturn {
     chatService.sendTypingIndicator(chatId, isTyping);
   }, []);
 
+  // Compare message sender with current user
+  const isCurrentUser = (message: any) => {
+    // Handle both string comparison and ObjectId comparison
+    const senderId = message.sender?._id || message.sender?.id;
+    const userId = session?.user?.id;
+
+    return senderId === userId;
+  };
+
   return {
     messages,
     isConnected: isConnected && socketInitialized.current,
@@ -226,6 +234,7 @@ export function useChat(): ChatHookReturn {
     sendMessage,
     loadChatHistory,
     joinChat,
-    setTyping
+    setTyping,
+    isCurrentUser
   };
 }
