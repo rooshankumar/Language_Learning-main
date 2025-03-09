@@ -53,9 +53,20 @@ export function UserList() {
     fetchUsers();
   }, []);
 
-  const handleChatClick = async (userId: string) => {
-    // Convert ObjectId to string if it's an ObjectId type
-    const userIdString = typeof userId === 'object' && userId.toString ? userId.toString() : userId;
+  const handleChatClick = async (user: User) => {
+    if (!user || (!user._id && !user.id)) {
+      toast({
+        title: "Error",
+        description: "Cannot start chat: User information is missing",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Extract the user ID, prioritizing _id (MongoDB ID)
+    const userId = user._id || user.id;
+    // Ensure we have a string representation
+    const userIdString = typeof userId === 'object' ? userId.toString() : String(userId);
     
     if (!userIdString || userIdString === 'undefined') {
       toast({
@@ -68,8 +79,7 @@ export function UserList() {
 
     setLoading(true);
     try {
-      // Log the user ID to help diagnose any future issues
-      console.log('Starting chat with user ID:', userIdString);
+      console.log('Starting chat with user:', user.name, 'ID:', userIdString);
       
       const chatId = await createChatWithUser(userIdString);
       if (chatId) {
@@ -147,13 +157,10 @@ export function UserList() {
           </CardContent>
           <CardFooter>
             <Button 
-              onClick={() => {
-                // Ensure we have a valid ID before attempting to start a chat
-                const userId = user._id || user.id || user.uid;
-                handleChatClick(userId ? userId.toString() : "");
-              }} 
+              onClick={() => handleChatClick(user)}
               variant="secondary" 
               className="w-full"
+              disabled={loading}
             >
               <MessageCircle className="h-4 w-4 mr-2" />
               Start Conversation

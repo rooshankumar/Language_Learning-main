@@ -179,17 +179,24 @@ export default chatService;
 // Helper function to create a chat with a user
 export async function createChat(title: string, recipientId: string) {
   try {
+    if (!recipientId) {
+      throw new Error('Recipient ID is required');
+    }
+    
+    console.log('Creating chat with recipient:', recipientId);
+    
     const response = await fetch('/api/chat/create', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ title, recipientId }),
+      body: JSON.stringify({ recipientId }),
     });
 
     const data = await response.json();
     
     if (!response.ok) {
+      console.error('Server error response:', data);
       return { success: false, error: data.error || 'Failed to create chat' };
     }
 

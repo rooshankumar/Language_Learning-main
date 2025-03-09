@@ -15,16 +15,17 @@ export async function POST(req: Request) {
       );
     }
 
-    const { userId } = await req.json();
+    const body = await req.json();
+    const recipientId = body.recipientId;
     
-    if (!userId) {
+    if (!recipientId) {
       return new NextResponse(
-        JSON.stringify({ error: "User ID is required" }),
+        JSON.stringify({ error: "Recipient ID is required" }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log("Creating chat between", session.user.id, "and", userId);
+    console.log("Creating chat between", session.user.id, "and", recipientId);
 
     const client = await clientPromise;
     const db = client.db();
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
     // Check if chat already exists
     let participantIds;
     try {
-      participantIds = [new ObjectId(session.user.id), new ObjectId(userId)];
+      participantIds = [new ObjectId(session.user.id), new ObjectId(recipientId)];
     } catch (error) {
       console.error("Error converting IDs to ObjectId:", error);
       return new NextResponse(
