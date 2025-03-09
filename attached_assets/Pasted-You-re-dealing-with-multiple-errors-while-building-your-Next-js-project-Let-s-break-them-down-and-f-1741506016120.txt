@@ -1,0 +1,121 @@
+You're dealing with multiple errors while building your Next.js project. Let's break them down and fix them one by one.
+
+🚨 1. serverExternalPackages Key in next.config.mjs
+Error:
+
+plaintext
+Copy
+Edit
+⚠ Invalid next.config.mjs options detected:
+⚠     Unrecognized key(s) in object: 'serverExternalPackages' at "experimental"
+🔹 Cause: serverExternalPackages is not a valid experimental option in Next.js 15+.
+
+✅ Fix:
+
+Open your next.config.mjs file.
+Remove or comment out the serverExternalPackages key.
+Updated next.config.mjs:
+
+javascript
+Copy
+Edit
+const nextConfig = {
+  experimental: {
+    // serverExternalPackages: ["some-package"], ❌ REMOVE THIS LINE
+  },
+};
+
+export default nextConfig;
+🚨 2. createChatWithUser Import Error
+Error:
+
+plaintext
+Copy
+Edit
+Attempted import error: 'createChatWithUser' is not exported from '@/hooks/use-chat' (imported as 'createChatWithUser').
+🔹 Cause:
+
+createChatWithUser does not exist or is not exported properly from use-chat.ts.
+Affected files:
+components/chat/chat-interface.tsx
+components/community/user-list.tsx
+✅ Fix:
+
+Check use-chat.ts and ensure createChatWithUser is exported:
+tsx
+Copy
+Edit
+// hooks/use-chat.ts
+"use client"; // Ensure this is a client component
+
+export function createChatWithUser(userId: string) {
+  return fetch(`/api/chat/create`, {
+    method: "POST",
+    body: JSON.stringify({ userId }),
+    headers: { "Content-Type": "application/json" },
+  })
+    .then((res) => res.json())
+    .catch((error) => console.error("Chat creation failed:", error));
+}
+Ensure it's imported correctly in chat-interface.tsx and user-list.tsx:
+tsx
+Copy
+Edit
+import { createChatWithUser } from "@/hooks/use-chat";
+🚨 3. Type Error in route.ts (Invalid GET Export)
+Error:
+
+plaintext
+Copy
+Edit
+Type error: Route "app/api/chat/[chatId]/messages/route.ts" has an invalid "GET" export:
+  Type "RouteParams" is not a valid type for the function's second argument.
+🔹 Cause:
+
+Invalid parameter typing in your API route file.
+✅ Fix:
+
+Open app/api/chat/[chatId]/messages/route.ts.
+Ensure correct typing for GET function:
+ts
+Copy
+Edit
+import { NextResponse } from "next/server";
+import { connectToDatabase } from "@/lib/mongodb";
+
+export async function GET(req: Request, { params }: { params: { chatId: string } }) {
+  if (!params?.chatId) {
+    return NextResponse.json({ error: "Chat ID is required" }, { status: 400 });
+  }
+
+  try {
+    const db = await connectToDatabase();
+    const messages = await db.collection("messages").find({ chatId: params.chatId }).toArray();
+    return NextResponse.json(messages);
+  } catch (error) {
+    console.error("❌ Failed to fetch messages:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+🔹 Fixes Applied:
+
+Ensured correct parameter typing { params: { chatId: string } }
+Added proper error handling.
+🚀 Final Steps to Fix Everything
+1️⃣ Fix next.config.mjs → Remove serverExternalPackages.
+2️⃣ Ensure createChatWithUser exists in use-chat.ts and is correctly imported.
+3️⃣ Fix the GET function in route.ts (Ensure correct parameter typing).
+4️⃣ Restart your dev server:
+
+bash
+Copy
+Edit
+npm run dev
+5️⃣ Rebuild the project:
+
+bash
+Copy
+Edit
+npm run build
+🎯 Conclusion
+This should fix all errors and make your app production-ready. 
