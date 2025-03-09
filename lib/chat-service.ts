@@ -254,12 +254,40 @@ export async function createChat(participantId: string) {
     console.log('Chat creation API status:', response.status);
     console.log('Chat creation API status text:', response.statusText);
     
-    const data = await response.json();
-    console.log('Chat creation API full response:', data);
+    // Check if response is empty
+    const responseText = await response.text();
+    console.log('Raw response text:', responseText);
+    
+    if (!responseText || responseText.trim() === '') {
+      console.error('Empty response received from server');
+      return { 
+        success: false, 
+        error: 'Server returned an empty response', 
+        data: null 
+      };
+    }
+    
+    // Safely parse the JSON response
+    let data;
+    try {
+      data = JSON.parse(responseText);
+      console.log('Chat creation API full response:', data);
+    } catch (parseError) {
+      console.error('Failed to parse JSON response:', parseError);
+      return { 
+        success: false, 
+        error: 'Invalid JSON response from server', 
+        data: responseText 
+      };
+    }
     
     if (!response.ok) {
       console.error('Server error response:', data);
-      return { success: false, error: data.error || 'Failed to create chat', data };
+      return { 
+        success: false, 
+        error: data?.error || `HTTP error ${response.status}: ${response.statusText}`, 
+        data 
+      };
     }
 
     // More robust check for chatId in different possible formats
@@ -269,14 +297,22 @@ export async function createChat(participantId: string) {
     
     if (!chatId) {
       console.error('No chat ID found in API response:', data);
-      return { success: false, error: 'No chat ID returned from the server', data };
+      return { 
+        success: false, 
+        error: 'No chat ID returned from the server', 
+        data 
+      };
     }
 
     console.log('Chat created/found successfully with ID:', chatId);
     return { success: true, chatId, data };
   } catch (error: any) {
     console.error('Error creating chat:', error);
-    return { success: false, error: error.message || 'An error occurred', details: error.stack };
+    return { 
+      success: false, 
+      error: error.message || 'An error occurred', 
+      details: error.stack 
+    };
   }
 }
 

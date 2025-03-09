@@ -30,11 +30,19 @@ export async function createChatWithUser(userId: string): Promise<string | null>
     
     if (!result.success) {
       console.error('Chat creation failed:', result.error);
-      throw new Error(result.error || 'Failed to create chat');
+      console.error('Chat creation failure details:', result.data);
+      
+      // Show more detailed error message
+      if (result.error.includes('JSON')) {
+        throw new Error(`Server returned invalid data: ${result.error}`);
+      } else {
+        throw new Error(result.error || 'Failed to create chat');
+      }
     }
     
     if (!result.chatId) {
       console.error('No chat ID returned from createChat function');
+      console.error('Response data:', result.data);
       throw new Error('No chat ID returned from the server');
     }
     
@@ -42,7 +50,8 @@ export async function createChatWithUser(userId: string): Promise<string | null>
     return result.chatId;
   } catch (error: any) {
     console.error('Error in createChatWithUser:', error.message || String(error));
-    // Rethrow with more details but still prevent silent failures
+    console.error('Error stack:', error.stack);
+    // Provide more specific error message to the UI
     throw new Error(`Failed to create chat: ${error.message || 'Unknown error'}`);
   }
 }

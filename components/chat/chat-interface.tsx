@@ -39,6 +39,7 @@ export function ChatInterface({
   const { data: session } = useSession();
   const [messageText, setMessageText] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false); // Added state for loading indicator
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
@@ -113,24 +114,39 @@ export function ChatInterface({
 
   const handleStartChat = async (userId: string) => {
     try {
+      setChatLoading(true);
+
+      // Add validation
+      if (!userId || userId.trim() === '') {
+        throw new Error('Invalid user ID provided');
+      }
+
+      console.log('Attempting to create chat with user:', userId);
       const chatId = await createChatWithUser(userId);
+
       if (chatId) {
+        console.log('Successfully created chat, navigating to:', chatId);
         router.push(`/chat/${chatId}`);
       } else {
-        console.error('No chat ID returned when creating chat');
-        toast({
-          title: "Error",
-          description: "Failed to create chat. Please try again.",
-          variant: "destructive"
-        });
+        console.error('No chat ID returned after successful creation');
+        throw new Error('Failed to create or find chat - No chat ID returned');
       }
     } catch (error: any) {
-      console.error('Failed to start chat:', error);
+      console.error('Error starting chat:', error);
+      // Show a more detailed error message
       toast({
-        title: "Chat Error",
-        description: error.message || "Failed to start chat. Please try again.",
-        variant: "destructive"
+        title: 'Chat Error',
+        description: `Could not start chat: ${error.message || 'Unknown error'}`,
+        variant: 'destructive',
+        duration: 5000,
       });
+
+      // Log additional details for debugging
+      if (error.stack) {
+        console.error('Error stack:', error.stack);
+      }
+    } finally {
+      setChatLoading(false);
     }
   };
 
