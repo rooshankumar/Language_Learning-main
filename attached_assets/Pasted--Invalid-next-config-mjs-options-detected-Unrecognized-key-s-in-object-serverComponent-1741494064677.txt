@@ -1,0 +1,218 @@
+⚠ Invalid next.config.mjs options detected: 
+ ⚠     Unrecognized key(s) in object: 'serverComponentsExternalPackages' at "experimental"
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+ ⚠ `experimental.serverComponentsExternalPackages` has been moved to `serverExternalPackages`. Please update your next.config.mjs file accordingly.
+ ✓ Ready in 2.5s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 2.7s (245 modules)
+ ○ Compiling /_not-found ...
+ ⚠ ./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+
+./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+[next-auth][warn][DEBUG_ENABLED] 
+https://next-auth.js.org/warnings#debug_enabled
+ GET /api/auth/session 200 in 27183ms
+ ⚠ ./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+
+./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+[next-auth][warn][DEBUG_ENABLED] 
+https://next-auth.js.org/warnings#debug_enabled
+ GET /socket.io?EIO=4&transport=polling&t=4kopj7hy 404 in 6375ms
+ GET /socket.io?EIO=4&transport=polling&t=4k3viay2 404 in 30463ms
+ GET /chat/67cd0db3457fe5290a0555a4 200 in 25865ms
+ ⚠ ./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+
+./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+ ⚠ ./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+
+./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+[next-auth][warn][DEBUG_ENABLED] 
+https://next-auth.js.org/warnings#debug_enabled
+Error: Route "/api/chat/[chatId]" used `params.chatId`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at GET (app/api/chat/[chatId]/route.ts:21:26)
+  19 |     }
+  20 |
+> 21 |     const chatId = params.chatId;
+     |                          ^
+  22 |     
+  23 |     if (!chatId) {
+  24 |       return new NextResponse(
+Error: Route "/api/chat/[chatId]" used `params.chatId`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at GET (app/api/chat/[chatId]/route.ts:21:26)
+  19 |     }
+  20 |
+> 21 |     const chatId = params.chatId;
+     |                          ^
+  22 |     
+  23 |     if (!chatId) {
+  24 |       return new NextResponse(
+ GET /api/chat/67cd0db3457fe5290a0555a4 200 in 254ms
+ ⚠ ./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+
+./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+ GET /socket.io?EIO=4&transport=polling&t=4kvxrv98 404 in 809ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⚠ ./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+
+./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+[next-auth][warn][DEBUG_ENABLED] 
+https://next-auth.js.org/warnings#debug_enabled
+ GET / 200 in 2596ms
+ GET /api/users/67cc7f484f6eb40593f6b154 404 in 1811ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /chat/67cd0db3457fe5290a0555a4 200 in 405ms
+Error: Route "/api/chat/[chatId]" used `params.chatId`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at GET (app/api/chat/[chatId]/route.ts:21:26)
+  19 |     }
+  20 |
+> 21 |     const chatId = params.chatId;
+     |                          ^
+  22 |     
+  23 |     if (!chatId) {
+  24 |       return new NextResponse(
+ GET /api/chat/67cd0db3457fe5290a0555a4 200 in 218ms
+ GET / 200 in 195ms
+ GET /socket.io?EIO=4&transport=polling&t=4kzrs60m 404 in 197ms
+ GET /api/users/67cc7f484f6eb40593f6b154 404 in 134ms
+ ⚠ ./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+
+./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+ ⚠ ./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+
+./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[next-auth][warn][DEBUG_ENABLED] 
+https://next-auth.js.org/warnings#debug_enabled
+ GET /chat/67cd0db3457fe5290a0555a4 200 in 678ms
+ GET /api/chat/67cd0db3457fe5290a0555a4/messages 200 in 2065ms
+Error: Route "/api/chat/[chatId]/messages" used `params.chatId`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at GET (app/api/chat/[chatId]/messages/route.ts:21:26)
+  19 |     }
+  20 |
+> 21 |     const chatId = params.chatId;
+     |                          ^
+  22 |     
+  23 |     if (!chatId) {
+  24 |       return new NextResponse(
+Error: Route "/api/chat/[chatId]" used `params.chatId`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at GET (app/api/chat/[chatId]/route.ts:21:26)
+  19 |     }
+  20 |
+> 21 |     const chatId = params.chatId;
+     |                          ^
+  22 |     
+  23 |     if (!chatId) {
+  24 |       return new NextResponse(
+ GET /api/chat/67cd0db3457fe5290a0555a4 200 in 267ms
+ GET / 200 in 280ms
+ GET /socket.io?EIO=4&transport=polling&t=4l3kzk4z 404 in 230ms
+ GET /api/users/67cc7f484f6eb40593f6b154 404 in 116ms
+Error: Route "/api/chat/[chatId]/messages" used `params.chatId`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at GET (app/api/chat/[chatId]/messages/route.ts:21:26)
+  19 |     }
+  20 |
+> 21 |     const chatId = params.chatId;
+     |                          ^
+  22 |     
+  23 |     if (!chatId) {
+  24 |       return new NextResponse(
+ GET /api/chat/67cd0db3457fe5290a0555a4/messages 200 in 406ms
+ ⚠ ./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+
+./app/chat/[chatId]/page.tsx
+Attempted import error: 'ChatInterface' is not exported from '@/components/chat/chat-interface' (imported as 'ChatInterface').
+
+Import trace for requested module:
+./app/chat/[chatId]/page.tsx
+ GET /chat/67cd0db3457fe5290a0555a4 200 in 111ms
+Error: Route "/api/chat/[chatId]" used `params.chatId`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at GET (app/api/chat/[chatId]/route.ts:21:26)
+  19 |     }
+  20 |
+> 21 |     const chatId = params.chatId;
+     |                          ^
+  22 |     
+  23 |     if (!chatId) {
+  24 |       return new NextResponse(
+ GET /api/chat/67cd0db3457fe5290a0555a4 200 in 306ms
+ GET / 200 in 210ms
+ GET /socket.io?EIO=4&transport=polling&t=4lf6ai42 404 in 211ms
+ GET /api/users/67cc7f484f6eb40593f6b154 404 in 176ms
+Error: Route "/api/chat/[chatId]/messages" used `params.chatId`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at GET (app/api/chat/[chatId]/messages/route.ts:21:26)
+  19 |     }
+  20 |
+> 21 |     const chatId = params.chatId;
+     |                          ^
+  22 |     
+  23 |     if (!chatId) {
+  24 |       return new NextResponse(
+ GET /api/chat/67cd0db3457fe5290a0555a4/messages 200 in 389ms
