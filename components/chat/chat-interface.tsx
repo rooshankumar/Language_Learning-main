@@ -151,6 +151,28 @@ export function ChatInterface({
   };
 
 
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('');
+  
+  // Display notification for new messages
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      // Only show notification for messages from the partner
+      if (lastMessage.senderId !== session?.user?.id) {
+        setNotificationMessage(`New message from ${chatPartner?.name || 'your chat partner'}`);
+        setShowNotification(true);
+        
+        // Hide notification after 3 seconds
+        const timer = setTimeout(() => {
+          setShowNotification(false);
+        }, 3000);
+        
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [messages, chatPartner?.name, session?.user?.id]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Chat header */}
@@ -168,6 +190,13 @@ export function ChatInterface({
           </p>
         </div>
       </div>
+      
+      {/* Notification */}
+      {showNotification && (
+        <div className="new-message-notification">
+          {notificationMessage}
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 p-4 overflow-y-auto">

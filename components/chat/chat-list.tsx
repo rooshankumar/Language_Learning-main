@@ -61,14 +61,15 @@ export default function ChatList() {
         const res = await fetch("/api/chat");
 
         if (!res.ok) {
-          throw new Error(`Failed to fetch chats: ${res.status}`);
+          const errorData = await res.json().catch(() => ({}));
+          console.error(`❌ Failed to fetch chats: ${res.status}`, errorData);
+          throw new Error(errorData.error || `Failed to fetch chats: ${res.status}`);
         }
 
         const data = await res.json();
-
         if (!Array.isArray(data)) {
-          console.error("❌ Invalid chat data:", data);
-          setChats([]);
+          console.error("❌ Invalid chat data received:", data);
+          setError("Invalid data received from server");
           setLoading(false);
           return;
         }
