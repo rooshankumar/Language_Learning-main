@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -17,6 +16,11 @@ type User = {
   languages?: string[]
   level?: string
   streakCount?: number
+  age?: number;
+  nativeLanguage?: string;
+  learningLanguages?: string[];
+  bio?: string;
+  interests?: string[];
 }
 
 export function UserList() {
@@ -50,26 +54,28 @@ export function UserList() {
 
   const startChat = async (userId: string) => {
     try {
+      console.log('Starting chat with user ID:', userId);
       const response = await fetch('/api/chat/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ receiverId: userId }),
+        body: JSON.stringify({ userId }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create chat');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create chat');
       }
 
-      const { chatId } = await response.json();
-      router.push(`/chat/${chatId}`);
+      const data = await response.json();
+      router.push(`/chat/${data.chatId}`);
     } catch (error) {
       console.error('Error starting chat:', error);
       toast({
         title: "Error",
-        description: "Failed to start conversation",
-        variant: "destructive",
+        description: "Failed to start chat. Please try again.",
+        variant: "destructive"
       });
     }
   };
@@ -94,30 +100,45 @@ export function UserList() {
               </Avatar>
               <div>
                 <CardTitle className="text-lg">{user.name}</CardTitle>
-                <CardDescription>{user.email}</CardDescription>
+                <CardDescription>{user.age ? `${user.age} years old` : ''}</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="text-sm">
-            {user.languages?.length ? (
+            {user.nativeLanguage && (
               <div className="mb-2">
-                <strong>Languages:</strong> {user.languages.join(', ')}
+                <strong>Native:</strong> {user.nativeLanguage}
               </div>
-            ) : null}
-            {user.level ? (
+            )}
+            {user.learningLanguages?.length > 0 && (
+              <div className="mb-2">
+                <strong>Learning:</strong> {user.learningLanguages.join(', ')}
+              </div>
+            )}
+            {user.languages?.length > 0 && (
+              <div className="mb-2">
+                <strong>Languages:</strong> {user.languages?.join(', ')}
+              </div>
+            )}
+            {user.level && (
               <div className="mb-2">
                 <strong>Level:</strong> {user.level}
               </div>
-            ) : null}
-            {user.streakCount ? (
-              <div>
-                <strong>Streak:</strong> {user.streakCount} days
+            )}
+            {user.bio && (
+              <div className="mb-3">
+                <strong>Bio:</strong> {user.bio.length > 100 ? `${user.bio.substring(0, 100)}...` : user.bio}
               </div>
-            ) : null}
+            )}
+            {user.interests?.length > 0 && (
+              <div className="mb-2">
+                <strong>Interests:</strong> {user.interests.join(', ')}
+              </div>
+            )}
           </CardContent>
           <CardFooter>
             <Button 
-              onClick={() => startChat(user._id)}
+              onClick={() => startChat(user._id.toString())}
               variant="secondary" 
               className="w-full"
             >
