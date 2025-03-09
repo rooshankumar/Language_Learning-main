@@ -33,17 +33,23 @@ export async function createChatWithUser(userId: string): Promise<string | null>
     console.log('Chat creation API response:', data);
 
     if (!response.ok) {
+      console.error('API returned error:', data.error || 'Unknown server error');
       throw new Error(data.error || 'Failed to create chat');
     }
 
-    if (!data.chatId) {
-      console.error('No chatId returned from API:', data);
+    // Check for chatId in different possible response formats
+    const chatId = data.chatId || (data._id ? data._id.toString() : null);
+    
+    if (!chatId) {
+      console.error('No chat ID found in API response:', data);
       throw new Error('No chat ID returned from the server');
     }
 
-    return data.chatId;
+    console.log('Successfully created/found chat with ID:', chatId);
+    return chatId;
   } catch (error) {
     console.error('Error creating chat:', error);
+    // Return null when error occurs
     return null;
   }
 }

@@ -233,33 +233,60 @@ class ChatService {
 const chatService = new ChatService();
 export default chatService;
 
-// Helper function to create a chat with a user
-export async function createChat(recipientId: string) {
+// Helper function to create a chat with a user using the correct API endpoint
+export async function createChat(participantId: string) {
   try {
-    if (!recipientId) {
-      throw new Error('Recipient ID is required');
+    if (!participantId) {
+      throw new Error('Participant ID is required');
     }
     
-    console.log('Creating chat with recipient:', recipientId);
+    console.log('Creating chat with participant:', participantId);
     
-    const response = await fetch('/api/chat/create', {
+    const response = await fetch('/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ recipientId }),
+      body: JSON.stringify({ participantId }),
     });
 
     const data = await response.json();
     
     if (!response.ok) {
       console.error('Server error response:', data);
-      return { success: false, error: data.error || 'Failed to create chat' };
+      return { success: false, error: data.error || 'Failed to create chat', data };
     }
 
-    return { success: true, chat: data };
+    // Check for chatId in different possible formats
+    const chatId = data.chatId || (data._id ? data._id.toString() : null);
+    
+    if (!chatId) {
+      console.error('No chat ID found in API response:', data);
+      return { success: false, error: 'No chat ID returned from the server', data };
+    }
+
+    console.log('Chat created/found successfully with ID:', chatId);
+    return { success: true, chatId, data };
   } catch (error: any) {
     console.error('Error creating chat:', error);
+    return { success: false, error: error.message || 'An error occurred' };
+  }
+}
+
+// Get all chat details by ID
+export async function getChatById(chatId: string) {
+  try {
+    const response = await fetch(`/api/chat/${chatId}`);
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('Error fetching chat:', data);
+      return { success: false, error: data.error || 'Failed to fetch chat' };
+    }
+    
+    return { success: true, chat: data };
+  } catch (error: any) {
+    console.error('Error getting chat:', error);
     return { success: false, error: error.message || 'An error occurred' };
   }
 }
