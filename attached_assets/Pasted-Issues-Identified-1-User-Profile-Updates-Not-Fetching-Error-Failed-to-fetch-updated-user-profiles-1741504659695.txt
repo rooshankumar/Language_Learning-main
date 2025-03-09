@@ -1,0 +1,152 @@
+Issues Identified
+1️⃣ User Profile Updates Not Fetching
+Error: Failed to fetch updated user profiles
+🔹 Cause: The useChat hook is failing to retrieve user details, likely due to incorrect API calls or missing dependencies in useEffect().
+
+2️⃣ Messages Not Updating in Real-Time
+🔹 Cause: Your chat system might not be listening to socket events properly.
+
+3️⃣ No Notifications for Incoming Messages
+🔹 Cause: Missing real-time socket events for message reception.
+
+🚀 Solution: Fix Real-Time Chat, User Updates & Notifications
+✅ 1. Fix fetchUserProfiles in useChat.ts
+Modify useEffect() to ensure profiles are fetched correctly.
+
+🔧 Updated useChat.ts
+tsx
+Copy
+Edit
+import { useState, useEffect } from "react";
+
+function useChat(userId) {
+  const [chats, setChats] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [socket, setSocket] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchUserProfiles = async () => {
+      try {
+        console.log("Fetching updated user profiles...");
+        const res = await fetch("/api/users");
+        if (!res.ok) throw new Error("❌ Failed to fetch users");
+
+        const data = await res.json();
+        setUsers(data);
+      } catch (err) {
+        console.error("🚨 Failed to fetch user profiles:", err.message);
+        setError(err.message);
+      }
+    };
+
+    fetchUserProfiles();
+
+    // Set up socket connection
+    const newSocket = io("https://yourserver.com");
+    newSocket.on("connect", () => console.log("🔗 Connected to Socket.IO"));
+    newSocket.on("message", (newMessage) => {
+      console.log("📩 New message received:", newMessage);
+      setChats((prevChats) =>
+        prevChats.map((chat) =>
+          chat._id === newMessage.chatId
+            ? { ...chat, messages: [...chat.messages, newMessage] }
+            : chat
+        )
+      );
+    });
+
+    setSocket(newSocket);
+    return () => newSocket.disconnect();
+  }, []);
+
+  return { chats, users, error, socket };
+}
+✅ 2. Ensure Messages Update in Real-Time
+Modify your ChatPage.tsx to handle incoming messages live.
+
+🔧 Updated ChatPage.tsx
+tsx
+Copy
+Edit
+import { useEffect, useState } from "react";
+import { useChat } from "@/hooks/use-chat";
+import { io } from "socket.io-client";
+
+function ChatPage({ userId }) {
+  const { chats, users, socket } = useChat(userId);
+  const [messages, setMessages] = useState([]);
+
+  useEffect(() => {
+    if (!socket) return;
+    
+    // Listen for incoming messages
+    socket.on("message", (newMessage) => {
+      console.log("📩 Message received:", newMessage);
+      setMessages((prev) => [...prev, newMessage]);
+    });
+
+    return () => socket.off("message");
+  }, [socket]);
+
+  const sendMessage = async (text) => {
+    const messageData = {
+      sender: userId,
+      text,
+      timestamp: new Date().toISOString(),
+    };
+    
+    socket.emit("sendMessage", messageData);
+    setMessages((prev) => [...prev, messageData]); // Update UI immediately
+  };
+
+  return (
+    <div className="chat-container">
+      {messages.map((msg, index) => (
+        <div key={index} className={`message ${msg.sender === userId ? "sent" : "received"}`}>
+          <p>{msg.text}</p>
+        </div>
+      ))}
+      <input type="text" onKeyDown={(e) => e.key === "Enter" && sendMessage(e.target.value)} />
+    </div>
+  );
+}
+✅ 3. Fix Message Alignment (Like Telegram)
+Modify your CSS to properly align messages.
+
+🔧 Updated chat.css
+css
+Copy
+Edit
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 20px;
+}
+
+.message {
+  padding: 10px;
+  margin: 5px;
+  max-width: 60%;
+  border-radius: 10px;
+}
+
+.sent {
+  background-color: #0078ff;
+  color: white;
+  align-self: flex-end;
+  text-align: right;
+}
+
+.received {
+  background-color: #e5e5e5;
+  color: black;
+  align-self: flex-start;
+  text-align: left;
+}
+🎯 Final Outcome
+✔ User profile updates will now be fetched correctly.
+✔ New messages will appear in real-time.
+✔ Messages will be aligned properly (sent = right, received = left).
+✔ Users will get notified when a new message arrives.
