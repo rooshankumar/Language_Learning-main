@@ -57,12 +57,31 @@ export function ProfileDashboard() {
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
+        console.log("Fetching latest profile data from server...");
         const response = await fetch('/api/user/profile');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.user && updateUser) {
-            updateUser(data);
-          }
+        
+        if (!response.ok) {
+          console.error("Error fetching profile:", response.status, response.statusText);
+          return;
+        }
+        
+        const data = await response.json();
+        console.log("Server returned profile data:", data);
+        
+        if (data.user && updateUser) {
+          console.log("Updating user with server data:", data.user);
+          updateUser({ user: data.user });
+          
+          // Also update the form with latest data from server
+          setFormData({
+            displayName: data.user.displayName || data.user.name || '',
+            bio: data.user.bio || '',
+            age: data.user.age ? data.user.age.toString() : '',
+            nativeLanguage: data.user.nativeLanguage || 'English',
+            learningLanguage: data.user.learningLanguage || 'Spanish',
+            interests: data.user.interests || [],
+            country: data.user.country || '',
+          });
         }
       } catch (error) {
         console.error("Error fetching user profile:", error);

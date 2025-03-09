@@ -1,118 +1,67 @@
-
-import { NextRequest, NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { NextResponse } from "next/server";
+import { connectToDatabase } from "@/lib/mongodb";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { ObjectId } from "mongodb";
+import User from "@/models/User";
 
-export async function GET(request: NextRequest) {
+// GET /api/user/profile
+export async function GET() {
   try {
+    // Get the user session
     const session = await getServerSession(authOptions);
 
-    if (!session?.user) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get the user ID from the session
-    const userId = (session.user as any).id || (session.user as any)._id;
+    await connectToDatabase();
 
-    // Connect to the database
-    const client = await clientPromise;
-    const db = client.db();
-
-    // Find the user by ID or email
-    let query = {}; 
-    if (userId) {
-      // Try to convert to ObjectId if it's a string
-      try {
-        query = { _id: new ObjectId(userId.toString()) };
-      } catch (e) {
-        // If it's not a valid ObjectId, use it as-is
-        query = { _id: userId };
-      }
-    } else if (session.user.email) {
-      query = { email: session.user.email };
-    } else {
-      return NextResponse.json({ error: 'No user identifier found' }, { status: 400 });
-    }
-
-    const user = await db.collection('users').findOne(query);
+    // Find the user by email
+    const user = await User.findOne({ email: session.user.email });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Return the user profile in consistent format
-    return NextResponse.json({ user });
+    return NextResponse.json({ user: user.toObject() });
   } catch (error) {
     console.error("Error fetching profile:", error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-export async function PUT(request: NextRequest) {
+// PUT /api/user/profile
+export async function PUT(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get the user ID from the session
-    const userId = (session.user as any).id || (session.user as any)._id;
-    const userEmail = session.user.email;
+    const data = await request.json();
 
-    if (!userId && !userEmail) {
-      return NextResponse.json({ error: 'No user identifier found' }, { status: 400 });
-    }
+    await connectToDatabase();
 
-    // Connect to the database
-    const client = await clientPromise;
-    const db = client.db();
-
-    // Parse the request data
-    const userData = await request.json();
-    console.log("Updating user with data:", userData);
-
-    // Prepare query - try to find the user by ID first, then by email
-    let query = {};
-    if (userId) {
-      try {
-        query = { _id: new ObjectId(userId.toString()) };
-      } catch (e) {
-        query = { _id: userId };
-      }
-    } else {
-      query = { email: userEmail };
-    }
-
-    // Ensure profile image fields are synchronized
-    if (userData.profilePic) {
-      userData.image = userData.profilePic;
-      userData.photoURL = userData.profilePic;
-    } else if (userData.image) {
-      userData.profilePic = userData.image;
-      userData.photoURL = userData.image;
-    } else if (userData.photoURL) {
-      userData.profilePic = userData.photoURL;
-      userData.image = userData.photoURL;
-    }
-
-    // Perform the update
-    const result = await db.collection('users').updateOne(
-      query,
-      { $set: userData }
+    // Find and update the user
+    const updatedUser = await User.findOneAndUpdate(
+      { email: session.user.email },
+      { $set: data },
+      { new: true } // Return the updated document
     );
 
-    if (result.matchedCount === 0) {
+    if (!updatedUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Return the updated user
-    const updatedUser = await db.collection('users').findOne(query);
-    return NextResponse.json({ user: updatedUser });
+    // Return updated user data in a consistent format
+    return NextResponse.json({ 
+      user: updatedUser.toObject(),
+      message: 'Profile updated successfully' 
+    });
   } catch (error) {
     console.error("Error updating profile:", error);
-    return NextResponse.json({ error: 'Internal server error', message: (error as Error).message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

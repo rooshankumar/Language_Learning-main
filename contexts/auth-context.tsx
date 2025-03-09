@@ -95,23 +95,34 @@ export function AuthProvider({ children }) {
     // Ensure we're working with the right structure
     const newUserData = userData.user ? userData.user : userData;
     
-    // Update the state
+    if (!newUserData) {
+      console.error("Invalid user data format received:", userData);
+      return;
+    }
+    
+    // Update the state with a complete replacement to ensure all fields sync
     setUser((prevUser) => {
+      // Create a complete user object with all fields from both sources
       const updatedUser = { ...prevUser, ...newUserData };
       console.log("Updated user state:", updatedUser);
       
-      // Also sync with localStorage
+      // Sync with localStorage for client-side persistence
       if (typeof window !== 'undefined') {
-        localStorage.setItem('user', JSON.stringify(updatedUser));
+        try {
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+        } catch (err) {
+          console.error("Error saving user to localStorage:", err);
+        }
       }
       
       return updatedUser;
     });
     
-    // Force session update
+    // Force session refresh on the server
     if (typeof window !== 'undefined') {
       // Request the user session to refresh
-      fetch('/api/auth/session', { method: 'GET' });
+      fetch('/api/auth/session', { method: 'GET' })
+        .catch(err => console.error("Error refreshing session:", err));
     }
   };
 
