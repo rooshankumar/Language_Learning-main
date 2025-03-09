@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -37,22 +36,22 @@ export default function ChatPage() {
   // Fetch chat data
   const fetchChatData = useCallback(async () => {
     if (!chatId || !session?.user) return;
-    
+
     try {
       const response = await fetch(`/api/chat/${chatId}`);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch chat');
       }
-      
+
       const chatData = await response.json();
-      
+
       // Find partner in the chat
       if (chatData.partnerDetails && chatData.partnerDetails.length > 0) {
         setChatPartner(chatData.partnerDetails[0]);
       }
-      
+
       return chatData;
     } catch (error: any) {
       console.error('Error fetching chat data:', error);
@@ -71,24 +70,24 @@ export default function ChatPage() {
   // Initialize chat
   useEffect(() => {
     let mounted = true;
-    
+
     const initializeChat = async () => {
       if (!chatId || !session?.user) return;
-      
+
       try {
         setLoading(true);
-        
+
         // Join the chat room
         joinChat(chatId);
-        
+
         // Load chat history
         await loadChatHistory(chatId);
-        
+
         // Fetch chat data
         const chatData = await fetchChatData();
-        
+
         if (!mounted) return;
-        
+
         if (!chatData) {
           setError('Failed to load chat data');
         }
@@ -103,9 +102,9 @@ export default function ChatPage() {
         }
       }
     };
-    
+
     initializeChat();
-    
+
     return () => {
       mounted = false;
     };
@@ -118,7 +117,7 @@ export default function ChatPage() {
         setError('Cannot send message: Socket not connected');
         return;
       }
-      
+
       try {
         sendMessage(content, chatId);
         // Reset typing indicator

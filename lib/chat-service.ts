@@ -140,13 +140,37 @@ class ChatService {
   }
 
   // Join a chat room
-  joinChat(chatId: string) {
+  async joinChat(chatId: string) {
     if (!this.socket || !this.socket.connected) {
-      console.error('Cannot join chat: Socket not connected');
-      return;
+      console.error('Cannot join chat: Socket not connected, attempting to reconnect...');
+      
+      // Try to reconnect if not connected
+      this.reset();
+      
+      // Wait for connection or timeout after 5 seconds
+      const connected = await new Promise<boolean>((resolve) => {
+        const timeout = setTimeout(() => resolve(false), 5000);
+        
+        if (this.socket) {
+          this.socket.once('connect', () => {
+            clearTimeout(timeout);
+            resolve(true);
+          });
+        } else {
+          clearTimeout(timeout);
+          resolve(false);
+        }
+      });
+      
+      if (!connected || !this.socket || !this.socket.connected) {
+        console.error('Failed to establish socket connection');
+        return false;
+      }
     }
 
     this.socket.emit('join_chat', { chatId });
+    console.log(`Joined chat room: ${chatId}`);
+    return true;
   }
 
   // Send a message

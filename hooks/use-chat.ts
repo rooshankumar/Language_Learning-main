@@ -162,17 +162,19 @@ export function useChat(): ChatHookReturn {
   }, []);
 
   // Join chat
-  const joinChat = useCallback((chatId: string) => {
+  const joinChat = useCallback(async (chatId: string) => {
     if (!chatId) {
       console.error('Cannot join chat: Invalid chat ID');
-      return;
+      return false;
     }
     
     currentChatId.current = chatId;
-    chatService.joinChat(chatId);
+    const joined = await chatService.joinChat(chatId);
     
     // Reset typing indicators when joining a new chat
     setIsTyping({});
+    
+    return joined;
   }, []);
 
   // Send message

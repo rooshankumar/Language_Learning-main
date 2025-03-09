@@ -9,9 +9,13 @@ const app = next({ dev });
 const handle = app.getRequestHandler();
 
 // Store active users (userId -> socketId mapping)
-const activeUsers = new Map();
+// Make it global so it can be accessed from API routes
+global.activeUsers = new Map();
+const activeUsers = global.activeUsers;
+
 // Store active socket connections (socketId -> socket object)
-const activeSockets = new Map();
+global.activeSockets = new Map();
+const activeSockets = global.activeSockets;
 
 app.prepare().then(() => {
   const server = express();
