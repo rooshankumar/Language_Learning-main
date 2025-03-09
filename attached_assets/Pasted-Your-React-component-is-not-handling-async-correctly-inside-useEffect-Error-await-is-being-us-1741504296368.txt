@@ -1,0 +1,69 @@
+Your React component is not handling async correctly inside useEffect().
+
+❌ Error:
+await is being used inside a non-async function, causing the "await isn't allowed in non-async function" error.
+
+🔥 Solution: Make useEffect Async Properly
+✅ Fix fetchChats() Inside useEffect
+Modify your useEffect() by defining an async function inside it, instead of making useEffect itself async.
+
+✅ Updated Code for ChatList.tsx
+tsx
+Copy
+Edit
+import { useEffect, useState } from "react";
+
+function ChatList({ userId }) {
+  const [chats, setChats] = useState([]);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // Define an async function inside useEffect
+    async function fetchChats() {
+      try {
+        console.log("📩 Fetching all chats...");
+        const res = await fetch("/api/chat");
+        if (!res.ok) throw new Error("❌ Failed to fetch chats");
+
+        const data = await res.json();
+        if (!Array.isArray(data)) throw new Error("❌ Invalid chat data received");
+
+        // Fetch partner details for each chat
+        const chatsWithPartner = await Promise.all(
+          data.map(async (chat) => {
+            const partner = await fetchChatPartner(chat._id);
+            return { ...chat, partner };
+          })
+        );
+
+        setChats(chatsWithPartner);
+        setError(null);
+      } catch (error) {
+        console.error("🚨 Failed to fetch chats:", error.message);
+        setError(error.message || "Failed to load chats");
+        setChats([]); // Avoid crashing UI
+      }
+    }
+
+    fetchChats(); // Call the async function
+  }, []);
+
+  return (
+    <div>
+      {chats.length > 0 ? (
+        chats.map((chat) => (
+          <div key={chat._id} className="chat-item">
+            <p><strong>{chat.partner?.name || "Unknown User"}</strong></p>
+            <p>{chat.latestMessage || "No messages yet"}</p>
+          </div>
+        ))
+      ) : (
+        <p>No chats available</p>
+      )}
+    </div>
+  );
+}
+🎯 Why This Works
+✅ Fixes the await issue by moving async logic inside a function inside useEffect().
+✅ Handles API errors gracefully (won’t crash if data is missing).
+✅ Ensures all chat partners are fetched correctly.
