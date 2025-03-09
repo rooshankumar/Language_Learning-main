@@ -120,11 +120,19 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     });
 
     if (!chat) {
+      console.error(`Chat ${chatId} not found or user ${userId} is not a participant`);
       return NextResponse.json(
         { error: "Chat not found or you're not a participant" },
         { status: 404 }
       );
     }
+    
+    // Ensure the chat has an ID in the expected format
+    const formattedChat = {
+      ...chat,
+      _id: chat._id.toString(),
+      chatId: chat._id.toString()
+    };
 
     // Delete the chat
     const result = await db.collection("chats").deleteOne({ _id: objectChatId });

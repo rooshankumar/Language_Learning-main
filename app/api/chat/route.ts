@@ -72,8 +72,8 @@ export async function POST(req: Request) {
 
     const result = await db.collection("chats").insertOne(newChat);
     
-    if (!result.acknowledged) {
-      console.error("MongoDB failed to acknowledge chat creation");
+    if (!result.acknowledged || !result.insertedId) {
+      console.error("MongoDB failed to acknowledge chat creation or no ID returned");
       return NextResponse.json(
         { error: "Failed to create chat in database" },
         { status: 500 }
@@ -83,8 +83,10 @@ export async function POST(req: Request) {
     const chatId = result.insertedId.toString();
     console.log("Created new chat with ID:", chatId);
     
+    // Return consistent response format with chatId property
     return NextResponse.json({ 
       chatId: chatId,
+      _id: chatId, // Include both formats for backward compatibility
       message: "Chat created successfully" 
     });
   } catch (error) {

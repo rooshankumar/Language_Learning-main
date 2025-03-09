@@ -251,14 +251,17 @@ export async function createChat(participantId: string) {
     });
 
     const data = await response.json();
+    console.log('Chat creation API full response:', data);
     
     if (!response.ok) {
       console.error('Server error response:', data);
       return { success: false, error: data.error || 'Failed to create chat', data };
     }
 
-    // Check for chatId in different possible formats
-    const chatId = data.chatId || (data._id ? data._id.toString() : null);
+    // More robust check for chatId in different possible formats
+    const chatId = data.chatId || 
+                  (data._id && typeof data._id === 'string' ? data._id : 
+                   data._id && typeof data._id === 'object' ? data._id.toString() : null);
     
     if (!chatId) {
       console.error('No chat ID found in API response:', data);

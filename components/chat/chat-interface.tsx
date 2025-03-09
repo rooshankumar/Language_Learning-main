@@ -9,6 +9,9 @@ import { Message } from '@/lib/chat-service';
 import { useSession } from 'next-auth/react';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
+import { useRouter } from 'next/navigation';
+import { toast } from '@/components/ui/use-toast';
+
 
 interface ChatPartner {
   _id: string;
@@ -38,6 +41,7 @@ export function ChatInterface({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter();
 
   // Scroll to bottom of messages
   useEffect(() => {
@@ -106,6 +110,30 @@ export function ChatInterface({
     const date = new Date(dateString);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+
+  const handleStartChat = async (userId: string) => {
+    try {
+      const chatId = await createChatWithUser(userId);
+      if (chatId) {
+        router.push(`/chat/${chatId}`);
+      } else {
+        console.error('No chat ID returned when creating chat');
+        toast({
+          title: "Error",
+          description: "Failed to create chat. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error: any) {
+      console.error('Failed to start chat:', error);
+      toast({
+        title: "Chat Error",
+        description: error.message || "Failed to start chat. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
 
   return (
     <div className="flex flex-col h-full">
@@ -215,3 +243,14 @@ export function ChatInterface({
     </div>
   );
 }
+
+// Dummy function - needs to be replaced with actual implementation
+const createChatWithUser = async (userId: string): Promise<string | undefined> => {
+  // Replace with actual API call
+  //Simulate success
+  return "123";
+  //Simulate failure
+  //return undefined;
+  //Simulate error
+  //throw new Error("API Error");
+};

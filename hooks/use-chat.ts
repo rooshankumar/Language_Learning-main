@@ -37,8 +37,10 @@ export async function createChatWithUser(userId: string): Promise<string | null>
       throw new Error(data.error || 'Failed to create chat');
     }
 
-    // Check for chatId in different possible response formats
-    const chatId = data.chatId || (data._id ? data._id.toString() : null);
+    // More robust check for chatId in different possible response formats
+    const chatId = data.chatId || 
+                  (data._id && typeof data._id === 'string' ? data._id : 
+                   data._id && typeof data._id === 'object' ? data._id.toString() : null);
     
     if (!chatId) {
       console.error('No chat ID found in API response:', data);
@@ -47,10 +49,10 @@ export async function createChatWithUser(userId: string): Promise<string | null>
 
     console.log('Successfully created/found chat with ID:', chatId);
     return chatId;
-  } catch (error) {
-    console.error('Error creating chat:', error);
-    // Return null when error occurs
-    return null;
+  } catch (error: any) {
+    console.error('Error creating chat:', error.message || String(error));
+    // Prevent silent failures by returning a helpful error message
+    throw new Error(error.message || 'Failed to create chat');
   }
 }
 
