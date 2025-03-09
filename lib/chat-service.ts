@@ -129,6 +129,15 @@ class ChatService {
       this.connectSocket();
     }, delay);
   }
+  
+  // Reset socket connection
+  reset() {
+    this.disconnect();
+    this.reconnectAttempts = 0;
+    if (this.userId && this.username) {
+      this.connectSocket();
+    }
+  }
 
   // Join a chat room
   joinChat(chatId: string) {

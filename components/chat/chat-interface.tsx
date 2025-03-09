@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,12 +48,42 @@ export function ChatInterface({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Debounced typing indicator
+  const handleTyping = useCallback(() => {
+    if (onTyping) {
+      onTyping(true);
+
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Set a new timeout to stop the typing indicator after 2 seconds of inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        onTyping(false);
+      }, 2000);
+    }
+  }, [onTyping]);
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleSendMessage = () => {
     if (messageText.trim() === '') return;
-    
+
     onSendMessage(messageText);
     setMessageText('');
     setShowEmojiPicker(false);
+    if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    if (onTyping) onTyping(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -66,21 +95,7 @@ export function ChatInterface({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setMessageText(e.target.value);
-    
-    // Handle typing indicator
-    if (onTyping) {
-      onTyping(true);
-      
-      // Clear existing timeout
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-      
-      // Set new timeout to stop typing indicator after 2 seconds
-      typingTimeoutRef.current = setTimeout(() => {
-        onTyping(false);
-      }, 2000);
-    }
+    handleTyping();
   };
 
   const handleEmojiSelect = (emoji: any) => {
@@ -115,7 +130,7 @@ export function ChatInterface({
         <div className="space-y-4">
           {messages.map((message) => {
             const isOwnMessage = message.sender._id === session?.user?.id;
-            
+
             return (
               <div
                 key={message._id}
@@ -146,7 +161,7 @@ export function ChatInterface({
               </div>
             );
           })}
-          
+
           {/* Typing indicator */}
           {isTyping && (
             <div className="flex justify-start">
@@ -159,7 +174,7 @@ export function ChatInterface({
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
       </div>

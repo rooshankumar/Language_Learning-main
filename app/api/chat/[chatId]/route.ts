@@ -1,86 +1,77 @@
 
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
-import clientPromise from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { NextRequest, NextResponse } from "next/server";
+import { connectToDatabase } from "@/lib/mongodb";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { ObjectId } from "mongodb";
 
+// GET /api/chat/[chatId] - Get a specific chat by ID
 export async function GET(
-  request: NextRequest,
+  req: NextRequest,
   { params }: { params: { chatId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user) {
-      return new NextResponse(
-        JSON.stringify({ error: "Not authenticated" }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const chatId = params.chatId;
-
-    if (!chatId) {
-      return new NextResponse(
-        JSON.stringify({ error: "Chat ID is required" }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+    
+    if (!chatId || !ObjectId.isValid(chatId)) {
+      return NextResponse.json(
+        { error: "Invalid chat ID" },
+        { status: 400 }
       );
     }
 
-    const client = await clientPromise;
-    const db = client.db();
-    
-    let objectId;
-    try {
-      objectId = new ObjectId(chatId);
-    } catch (error) {
-      return new NextResponse(
-        JSON.stringify({ error: "Invalid chat ID format" }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    // Find chat and populate participant details
-    const chat = await db.collection('chats').findOne({
-      _id: objectId,
+    const { db } = await connectToDatabase();
+
+    // Find the chat
+    const chat = await db.collection("chats").findOne({
+      _id: new ObjectId(chatId),
       participants: session.user.id
     });
-    
+
     if (!chat) {
-      return new NextResponse(
-        JSON.stringify({ error: "Chat not found or access denied" }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      return NextResponse.json(
+        { error: "Chat not found" },
+        { status: 404 }
       );
     }
-    
-    // Get chat partner details
-    const partnerIds = chat.participants.filter(id => id !== session.user.id);
-    const partners = await db.collection('users')
-      .find({ _id: { $in: partnerIds.map(id => new ObjectId(id)) } })
-      .toArray();
-    
-    const result = {
-      ...chat,
-      partnerDetails: partners.map(partner => ({
-        _id: partner._id.toString(),
-        name: partner.name,
-        image: partner.image || partner.profilePic,
-        online: partner.online || false,
-        lastSeen: partner.lastSeen || null
-      }))
-    };
-    
-    return new NextResponse(
-      JSON.stringify(result),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+
+    // Find the other participant's details
+    const otherParticipantId = chat.participants.find(
+      (p: string) => p !== session.user.id
     );
-    
-  } catch (error: any) {
+
+    let chatPartner = null;
+    if (otherParticipantId) {
+      chatPartner = await db.collection("users").findOne(
+        { _id: new ObjectId(otherParticipantId) },
+        { 
+          projection: { 
+            name: 1, 
+            email: 1, 
+            image: 1, 
+            profilePic: 1, 
+            online: 1, 
+            lastSeen: 1 
+          } 
+        }
+      );
+    }
+
+    return NextResponse.json({
+      ...chat,
+      chatPartner
+    });
+  } catch (error) {
     console.error("Error fetching chat:", error);
-    return new NextResponse(
-      JSON.stringify({ error: error.message || "Failed to fetch chat" }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    return NextResponse.json(
+      { error: "Failed to fetch chat" },
+      { status: 500 }
     );
   }
 }

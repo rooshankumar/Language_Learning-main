@@ -17,6 +17,29 @@ export interface ChatHookReturn {
   setTyping: (chatId: string, isTyping: boolean) => void;
 }
 
+export async function createChatWithUser(userId: string): Promise<string | null> {
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ participantId: userId }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to create chat');
+    }
+
+    const data = await response.json();
+    return data.chatId;
+  } catch (error) {
+    console.error('Error creating chat:', error);
+    return null;
+  }
+}
+
 export function useChat(): ChatHookReturn {
   const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[]>([]);

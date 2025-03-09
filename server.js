@@ -188,6 +188,35 @@ async function startServer() {
       });
     });
 
+    // Graceful shutdown handling
+    const gracefulShutdown = () => {
+      console.log('Received shutdown signal, closing connections...');
+      
+      // Close MongoDB connection
+      client.close().then(() => {
+        console.log('MongoDB connection closed');
+        
+        // Close HTTP server
+        server.close(() => {
+          console.log('HTTP server closed');
+          process.exit(0);
+        });
+      }).catch(err => {
+        console.error('Error during shutdown:', err);
+        process.exit(1);
+      });
+      
+      // Force exit after 10 seconds if graceful shutdown fails
+      setTimeout(() => {
+        console.error('Forced shutdown after timeout');
+        process.exit(1);
+      }, 10000);
+    };
+    
+    // Listen for termination signals
+    process.on('SIGTERM', gracefulShutdown);
+    process.on('SIGINT', gracefulShutdown);
+    
     server.listen(port, hostname, () => {
       console.log(`Ready on http://${hostname}:${port}`);
     });
