@@ -1,104 +1,87 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import connectDB from "@/lib/mongodb";
-import Chat from "@/models/Chat";
-import User from "@/models/User";
+import { connectToDB } from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
 
 export async function GET(req, { params }) {
   try {
+    console.log("Fetching chat partner for chatId:", params.chatId);
+
     const session = await getServerSession(authOptions);
     if (!session?.user) {
+      console.error("❌ Unauthorized access attempt to chat partner API");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { chatId } = params;
+    const userId = session.user.id;
 
-    await connectDB();
+    console.log(`User ${userId} requesting chat partner for chat ${chatId}`);
 
-    const chat = await Chat.findById(chatId);
-    if (!chat) {
-      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-    }
-
-    // Check if user is a participant
-    if (!chat.participants.includes(session.user.id)) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
-    }
-
-    // Find the partner (the other participant)
-    const partnerId = chat.participants.find(id => id.toString() !== session.user.id);
-
-    if (!partnerId) {
-      return NextResponse.json({ error: "Chat partner not found" }, { status: 404 });
-    }
-
-    const partner = await User.findById(partnerId).select("displayName image status lastActive"); //Added lastActive
-
-    if (!partner) {
-      return NextResponse.json({ error: "Chat partner not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(partner);
-  } catch (error) {
-    console.error("Error fetching chat partner:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
-
-export async function GET(req: Request, { params }: { params: { chatId: string } }) {
-  try {
-    console.log("Fetching chat partner for chatId:", params.chatId);
-    
-    // Connect to database
     const db = await connectToDB();
-    
-    // Get userId from request URL
-    const url = new URL(req.url);
-    const userId = url.searchParams.get("userId");
-    
-    if (!userId) {
-      console.error("No userId provided in request");
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
+
+    // Check if chatId is valid
+    if (!chatId || typeof chatId !== 'string' || chatId.length !== 24) {
+      console.error(`❌ Invalid chatId format: ${chatId}`);
+      return NextResponse.json({ error: "Invalid chat ID format" }, { status: 400 });
     }
 
     // Find the chat
     const chat = await db.collection("chats").findOne({ 
-      _id: new ObjectId(params.chatId)
+      _id: new ObjectId(chatId)
     });
 
     if (!chat) {
-      console.error(`Chat not found for chatId: ${params.chatId}`);
+      console.error(`❌ Chat not found: ${chatId}`);
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
 
-    // Find the other participant (the partner)
-    const otherParticipantId = chat.participants.find(
-      (p: string) => p.toString() !== userId
+    // Check if user is a participant
+    const userIdStr = userId.toString();
+    const isParticipant = chat.participants.some(
+      id => id.toString() === userIdStr || id === userIdStr
     );
-    
-    if (!otherParticipantId) {
-      console.error(`No partner found in chat: ${params.chatId}`);
+
+    if (!isParticipant) {
+      console.error(`❌ Access denied for user ${userId} to chat ${chatId}`);
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
+    // Find the partner (the other participant)
+    const partnerId = chat.participants.find(
+      id => id.toString() !== userIdStr && id !== userIdStr
+    );
+
+    if (!partnerId) {
+      console.error(`❌ Partner not found in chat ${chatId}`);
       return NextResponse.json({ error: "Chat partner not found" }, { status: 404 });
     }
 
-    // Get the partner's user details
+    console.log(`Looking for partner with ID: ${partnerId}`);
+
+    // Query the users collection for partner details
     const partner = await db.collection("users").findOne({ 
-      _id: new ObjectId(otherParticipantId)
+      _id: typeof partnerId === 'string' ? new ObjectId(partnerId) : partnerId 
     });
 
     if (!partner) {
-      console.error(`Partner user not found with ID: ${otherParticipantId}`);
-      return NextResponse.json({ error: "Partner user not found" }, { status: 404 });
+      console.error(`❌ Partner user not found in database: ${partnerId}`);
+      return NextResponse.json({ error: "Chat partner not found" }, { status: 404 });
     }
 
-    // Return the partner's details
-    return NextResponse.json(partner);
+    // Create a safe partner object with only necessary info
+    const safePartner = {
+      _id: partner._id,
+      name: partner.name || partner.displayName || "Unknown User",
+      profilePic: partner.image || partner.profilePic || null,
+      lastActive: partner.lastActive || null
+    };
+
+    console.log(`✅ Successfully fetched partner for chat ${chatId}: ${safePartner.name}`);
+    return NextResponse.json(safePartner);
   } catch (error) {
-    console.error("🚨 Server error in chat partner API:", error);
+    console.error("🚨 Error fetching chat partner:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

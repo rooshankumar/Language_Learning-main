@@ -162,20 +162,48 @@ export const useChat = () => {
         return null;
       }
 
-      console.log(`Fetching partner for chat: ${chatId}`);
-      const response = await fetch(`/api/chat/${chatId}/partner?userId=${session.user.id}`);
+      console.log(`📩 Fetching partner for chat: ${chatId}`);
+      
+      // Retry mechanism for more resilience
+      const maxRetries = 2;
+      let retries = 0;
+      let response;
+      
+      while (retries <= maxRetries) {
+        try {
+          response = await fetch(`/api/chat/${chatId}/partner`);
+          break; // Exit the loop if fetch succeeds
+        } catch (fetchError) {
+          retries++;
+          console.warn(`Retry ${retries}/${maxRetries} for partner fetch`);
+          if (retries > maxRetries) throw fetchError;
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
 
-      if (!response.ok) {
+      if (!response?.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error(`Failed to fetch chat partner with status ${response.status}:`, errorData);
+        console.error(`❌ Failed to fetch chat partner with status ${response.status}:`, errorData);
         throw new Error(`Failed to fetch chat partner: ${errorData.error || response.statusText}`);
       }
 
       const data = await response.json();
-      console.log('Chat partner fetched successfully:', data.name || data._id);
-      return data;
+      
+      if (!data || (!data.name && !data._id)) {
+        console.error('❌ Invalid partner data received:', data);
+        return null;
+      }
+      
+      console.log('✅ Chat partner fetched successfully:', data.name || data._id);
+      return {
+        _id: data._id,
+        name: data.name || data.displayName || "Unknown User",
+        profilePic: data.profilePic || data.image || null,
+        email: data.email || null
+      };
     } catch (error) {
-      console.error('Error fetching chat partner:', error);
+      console.error('🚨 Error fetching chat partner:', error);
       return null;
     }
   }, [session]);

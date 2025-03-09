@@ -33,10 +33,31 @@ export default clientPromise;
 
 // Helper function to get DB connection
 export async function connectToDB() {
-  if (!db) {
-    const connectedClient = await clientPromise;
-    db = connectedClient.db();
-    console.log("✅ MongoDB Connected");
+  try {
+    if (!db) {
+      const connectedClient = await clientPromise;
+      db = connectedClient.db();
+      console.log("✅ MongoDB Connected");
+    }
+    return db;
+  } catch (error) {
+    console.error("🚨 MongoDB Connection Error:", error);
+    // Attempt reconnection after delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Create a new client if needed
+    if (process.env.NODE_ENV !== "development" || !global._mongoClientPromise) {
+      console.log("🔄 Attempting to reconnect to MongoDB...");
+      client = new MongoClient(uri, options);
+      if (process.env.NODE_ENV === "development") {
+        global._mongoClientPromise = client.connect();
+      }
+      clientPromise = client.connect();
+    }
+    
+    const newClient = await clientPromise;
+    db = newClient.db();
+    console.log("✅ MongoDB Reconnected");
+    return db;
   }
-  return db;
 }

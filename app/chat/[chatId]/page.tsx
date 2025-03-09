@@ -20,42 +20,64 @@ export default function ChatPage() {
   useEffect(() => {
     if (!chatId || !session?.user?.id) return;
 
+    let isMounted = true;
+
     const joinChatRoom = async () => {
       try {
         setIsJoining(true);
+        console.log(`📌 Joining chat room: ${chatId}`);
+
         await joinChat(chatId, session.user.id);
+        console.log(`✅ Successfully joined chat: ${chatId}`);
 
         // Fetch chat partner
+        console.log(`📩 Fetching partner data for chat: ${chatId}`);
         const partnerData = await getChatPartner(chatId);
-        if (partnerData) {
+
+        if (partnerData && isMounted) {
+          console.log(`✅ Partner data received:`, partnerData.name || partnerData._id);
           setPartner(partnerData);
-        } else {
-          console.error("No partner data returned");
+        } else if (isMounted) {
+          console.error(`❌ No partner data found for chat: ${chatId}`);
         }
       } catch (error) {
-        console.error("Failed to join chat:", error);
+        console.error("🚨 Failed to join chat:", error);
       } finally {
-        setIsJoining(false);
+        if (isMounted) {
+          setIsJoining(false);
+        }
       }
     };
 
     const fetchChatMessages = async () => {
       try {
+        console.log(`📩 Fetching messages for chat: ${chatId}`);
         const response = await fetch(`/api/chat/${chatId}/messages`);
+
         if (!response.ok) {
-          throw new Error(`Failed to fetch messages: ${response.status}`);
+          const errorData = await response.json().catch(() => ({}));
+          console.error(`❌ Failed to fetch messages: ${response.status}`, errorData);
+          return;
         }
+
         const data = await response.json();
-        setMessages(data);
+
+        if (isMounted) {
+          console.log(`✅ Received ${data.length} messages for chat: ${chatId}`);
+          setMessages(data);
+        }
       } catch (error) {
-        console.error("Error fetching messages:", error);
+        console.error("🚨 Error fetching messages:", error);
       }
     };
 
     joinChatRoom();
-    if (chatId) {
-      fetchChatMessages();
-    }
+    fetchChatMessages();
+
+    // Clean up function
+    return () => {
+      isMounted = false;
+    };
   }, [chatId, session?.user?.id, getChatPartner]);
 
   return (
