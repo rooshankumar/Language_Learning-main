@@ -1,26 +1,27 @@
 
 import { NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/mongodb";
+import { connectToDatabase, verifyDbConnection } from "@/lib/mongodb";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import User from "@/models/User";
 
-// GET /api/user/profile
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Get the user session
+    // Check authentication
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
+    
+    if (!session || !session.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    try {
-      await connectToDatabase();
-    } catch (dbError) {
-      console.error("Database connection error:", dbError);
+    // Verify database connection first
+    const isConnected = await verifyDbConnection();
+    if (!isConnected) {
+      console.error("Database connection failed");
       return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
+
+    await connectToDatabase();
 
     // Find the user by email
     const user = await User.findOne({ email: session.user.email });
@@ -29,7 +30,7 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Return the user profile in consistent format
+    // Return user data
     return NextResponse.json({ user: user.toObject() });
   } catch (error) {
     console.error("Error fetching profile:", error);
@@ -37,29 +38,31 @@ export async function GET() {
   }
 }
 
-// PUT /api/user/profile
 export async function PUT(request: Request) {
   try {
+    // Check authentication
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
+    
+    if (!session || !session.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const data = await request.json();
 
-    try {
-      await connectToDatabase();
-    } catch (dbError) {
-      console.error("Database connection error:", dbError);
+    // Verify database connection first
+    const isConnected = await verifyDbConnection();
+    if (!isConnected) {
+      console.error("Database connection failed");
       return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
+
+    await connectToDatabase();
 
     // Find and update the user
     const updatedUser = await User.findOneAndUpdate(
       { email: session.user.email },
-      { $set: data },
-      { new: true } // Return the updated document
+      { $set: { ...data, updatedAt: new Date() } },
+      { new: true, runValidators: true }
     );
 
     if (!updatedUser) {
@@ -67,7 +70,10 @@ export async function PUT(request: Request) {
     }
 
     // Convert to plain object and return
-    return NextResponse.json({ user: updatedUser.toObject() });
+    return NextResponse.json({ 
+      user: updatedUser.toObject(),
+      message: 'Profile updated successfully' 
+    });
   } catch (error) {
     console.error("Error updating profile:", error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from 'react'
@@ -52,33 +51,43 @@ export function ProfileDashboard() {
       });
     }
   }, [user])
-  
+
   // Fetch the latest user data from the server on component mount
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        console.log("Fetching latest profile data from server...");
+        console.log("Fetching user profile...");
         const response = await fetch('/api/user/profile');
-        
+
         if (!response.ok) {
-          const errorText = await response.text().catch(() => '');
-          console.error("Error fetching profile:", response.status, response.statusText, errorText);
-          
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch {
+            errorData = { error: await response.text() || 'Unknown error' };
+          }
+
+          console.error("Error fetching profile:", {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorData
+          });
+
           toast({
             title: "Error loading profile",
-            description: `Status: ${response.status} - ${response.statusText || 'Unknown error'}`,
+            description: `Status: ${response.status} - ${errorData.error || response.statusText || 'Unknown error'}`,
             variant: "destructive"
           });
           return;
         }
-        
+
         const data = await response.json();
         console.log("Server returned profile data:", data);
-        
+
         if (data.user && updateUser) {
           console.log("Updating user with server data:", data.user);
           updateUser({ user: data.user });
-          
+
           // Also update the form with latest data from server
           setFormData({
             displayName: data.user.displayName || data.user.name || '',
@@ -89,7 +98,7 @@ export function ProfileDashboard() {
             interests: data.user.interests || [],
             country: data.user.country || '',
           });
-          
+
           toast({
             title: "Profile loaded",
             description: "Your profile has been loaded successfully"
@@ -104,7 +113,7 @@ export function ProfileDashboard() {
         });
       }
     };
-    
+
     fetchUserProfile();
   }, [updateUser, toast]);
 
@@ -130,7 +139,7 @@ export function ProfileDashboard() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.displayName.trim()) {
       toast({
         title: "Name is required",
@@ -139,10 +148,10 @@ export function ProfileDashboard() {
       })
       return
     }
-    
+
     try {
       setIsLoading(true)
-      
+
       // Create the update payload - remove the userId from the payload
       // as the API identifies the user from the session
       const updatePayload = {
@@ -155,9 +164,9 @@ export function ProfileDashboard() {
         interests: formData.interests,
         country: formData.country,
       }
-      
+
       console.log("Sending profile update:", updatePayload)
-      
+
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: {
@@ -165,20 +174,20 @@ export function ProfileDashboard() {
         },
         body: JSON.stringify(updatePayload),
       })
-      
+
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || errorData.message || 'Failed to update profile')
       }
-      
+
       const data = await response.json()
       console.log("Profile update response:", data)
-      
+
       // Update user in context with the data returned from the server
       if (updateUser && user) {
         // Just pass the data directly - the context will handle the structure
         updateUser(data);
-        
+
         // Also update the form with the latest data
         const updatedUser = data.user || data;
         setFormData(prev => ({
@@ -192,7 +201,7 @@ export function ProfileDashboard() {
           country: updatedUser.country || prev.country,
         }));
       }
-      
+
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully"
@@ -221,7 +230,7 @@ export function ProfileDashboard() {
         <div className="mb-6">
           <ImageUpload />
         </div>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="displayName">Display Name</Label>
@@ -233,7 +242,7 @@ export function ProfileDashboard() {
               placeholder="Your name"
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="age">Age</Label>
             <Input
@@ -245,7 +254,7 @@ export function ProfileDashboard() {
               placeholder="Your age"
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="country">Country of Residence</Label>
             <Input
@@ -256,7 +265,7 @@ export function ProfileDashboard() {
               placeholder="Your country"
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="nativeLanguage">Native Language</Label>
             <Select 
@@ -275,7 +284,7 @@ export function ProfileDashboard() {
               </SelectContent>
             </Select>
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="learningLanguage">Learning Language</Label>
             <Select 
@@ -294,7 +303,7 @@ export function ProfileDashboard() {
               </SelectContent>
             </Select>
           </div>
-          
+
           <div className="space-y-2">
             <Label>Interests</Label>
             <div className="flex flex-wrap gap-2 mt-2">
@@ -311,7 +320,7 @@ export function ProfileDashboard() {
               ))}
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="bio">Bio</Label>
             <Textarea
@@ -323,7 +332,7 @@ export function ProfileDashboard() {
               rows={4}
             />
           </div>
-          
+
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Changes'}
           </Button>
