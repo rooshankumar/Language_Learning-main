@@ -1,37 +1,33 @@
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { ObjectId } from "mongodb";
 
-// GET /api/user/profile - Get the current user's profile
-export async function GET(req: NextRequest) {
+// GET: Fetch current user profile
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
     }
 
     const { db } = await connectToDatabase();
+    
     const userId = session.user.id;
+    const userObjectId = new ObjectId(userId);
 
     const user = await db.collection("users").findOne(
-      { _id: new ObjectId(userId) },
+      { _id: userObjectId },
       { 
         projection: { 
-          name: 1, 
-          email: 1, 
-          image: 1, 
-          profilePic: 1,
-          bio: 1,
-          level: 1,
-          progress: 1,
-          interests: 1,
-          createdAt: 1,
-          online: 1,
-          lastSeen: 1
+          password: 0, // Exclude sensitive data
+          emailVerified: 0
         } 
       }
     );
@@ -47,41 +43,50 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error("Error fetching user profile:", error);
     return NextResponse.json(
-      { error: "Failed to fetch profile" },
+      { error: "Failed to fetch user profile" },
       { status: 500 }
     );
   }
 }
 
-// PUT /api/user/profile - Update the current user's profile
-export async function PUT(req: NextRequest) {
+// PATCH: Update user profile
+export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
     }
 
     const userId = session.user.id;
-    const { bio, interests, name } = await req.json();
-
-    const updateData: any = {};
+    const userObjectId = new ObjectId(userId);
+    const body = await req.json();
     
-    if (bio !== undefined) updateData.bio = bio;
-    if (interests !== undefined) updateData.interests = interests;
-    if (name !== undefined) updateData.name = name;
+    // Validate update data
+    const allowedFields = ["name", "bio", "language", "interests", "profilePic"];
+    const updateData: Record<string, any> = {};
+    
+    for (const field of allowedFields) {
+      if (body[field] !== undefined) {
+        updateData[field] = body[field];
+      }
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
-        { error: "No valid update fields provided" },
+        { error: "No valid fields to update" },
         { status: 400 }
       );
     }
 
     const { db } = await connectToDatabase();
-
+    
+    // Update the user
     const result = await db.collection("users").updateOne(
-      { _id: new ObjectId(userId) },
+      { _id: userObjectId },
       { $set: updateData }
     );
 
@@ -92,8 +97,15 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ 
-      message: "Profile updated successfully" 
+    // Fetch and return the updated user
+    const updatedUser = await db.collection("users").findOne(
+      { _id: userObjectId },
+      { projection: { password: 0, emailVerified: 0 } }
+    );
+
+    return NextResponse.json({
+      message: "Profile updated successfully",
+      user: updatedUser
     });
   } catch (error) {
     console.error("Error updating user profile:", error);

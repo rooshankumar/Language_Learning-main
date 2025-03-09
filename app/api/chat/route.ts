@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getServerSession } from "next-auth";
@@ -13,17 +12,17 @@ export async function GET(req: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
+    
     const userId = session.user.id;
     const { db } = await connectToDatabase();
-
+    
     // Find all chats where the current user is a participant
     const chats = await db
       .collection("chats")
       .find({ participants: userId })
       .sort({ updatedAt: -1 })
       .toArray();
-
+    
     return NextResponse.json(chats);
   } catch (error) {
     console.error("Error fetching chats:", error);
@@ -35,16 +34,21 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/chat - Create a new chat
-export async function POST(req: NextRequest) {
+import { Request } from 'next/server';
+export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
     }
 
     const currentUserId = session.user.id;
-    const { participantId } = await req.json();
+    const body = await req.json();
+    const { participantId } = body;
 
     if (!participantId) {
       return NextResponse.json(
@@ -53,17 +57,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if participantId is valid
+    console.log(`Creating chat between ${currentUserId} and ${participantId}`);
+
+    // Validate ObjectId format
     if (!ObjectId.isValid(participantId)) {
       return NextResponse.json(
-        { error: "Invalid participant ID" },
+        { error: "Invalid participant ID format" },
         { status: 400 }
       );
     }
 
     const { db } = await connectToDatabase();
 
-    // Check if chat already exists between the two users
+    // Check if a chat already exists between these two users
     const existingChat = await db.collection("chats").findOne({
       participants: { 
         $all: [currentUserId, participantId],
@@ -72,27 +78,41 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingChat) {
+      console.log('Chat already exists:', existingChat._id);
       return NextResponse.json({ 
-        chatId: existingChat._id,
+        chatId: existingChat._id.toString(),
         message: "Chat already exists" 
       });
     }
 
     // Create new chat
-    const result = await db.collection("chats").insertOne({
+    const newChat = {
       participants: [currentUserId, participantId],
       createdAt: new Date(),
       updatedAt: new Date()
-    });
+    };
+
+    const result = await db.collection("chats").insertOne(newChat);
+
+    if (!result.acknowledged) {
+      console.error('Failed to insert chat into database');
+      return NextResponse.json(
+        { error: "Failed to create chat in database" },
+        { status: 500 }
+      );
+    }
+
+    const chatId = result.insertedId.toString();
+    console.log('New chat created with ID:', chatId);
 
     return NextResponse.json({ 
-      chatId: result.insertedId,
+      chatId: chatId,
       message: "Chat created successfully" 
     });
   } catch (error) {
     console.error("Error creating chat:", error);
     return NextResponse.json(
-      { error: "Failed to create chat" },
+      { error: "Server error when creating chat" },
       { status: 500 }
     );
   }

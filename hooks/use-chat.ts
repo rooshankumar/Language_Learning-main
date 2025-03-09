@@ -19,6 +19,8 @@ export interface ChatHookReturn {
 
 export async function createChatWithUser(userId: string): Promise<string | null> {
   try {
+    console.log('Creating chat with user ID:', userId);
+    
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: {
@@ -27,12 +29,18 @@ export async function createChatWithUser(userId: string): Promise<string | null>
       body: JSON.stringify({ participantId: userId }),
     });
 
+    const data = await response.json();
+    console.log('Chat creation API response:', data);
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to create chat');
+      throw new Error(data.error || 'Failed to create chat');
     }
 
-    const data = await response.json();
+    if (!data.chatId) {
+      console.error('No chatId returned from API:', data);
+      throw new Error('No chat ID returned from the server');
+    }
+
     return data.chatId;
   } catch (error) {
     console.error('Error creating chat:', error);
