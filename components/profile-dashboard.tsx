@@ -87,49 +87,42 @@ export function ProfileDashboard() {
     try {
       setIsLoading(true)
       
-      const userId = user?.id || user?._id
-      
-      if (!userId) {
-        throw new Error('User ID not found')
+      // Create the update payload - remove the userId from the payload
+      // as the API identifies the user from the session
+      const updatePayload = {
+        displayName: formData.displayName,
+        name: formData.displayName, // Update name field too for consistency
+        bio: formData.bio,
+        age: formData.age ? parseInt(formData.age) : undefined,
+        nativeLanguage: formData.nativeLanguage,
+        learningLanguage: formData.learningLanguage,
+        interests: formData.interests,
+        country: formData.country,
       }
+      
+      console.log("Sending profile update:", updatePayload)
       
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          userId,
-          displayName: formData.displayName,
-          name: formData.displayName, // Update name field too for consistency
-          bio: formData.bio,
-          age: formData.age ? parseInt(formData.age) : undefined,
-          nativeLanguage: formData.nativeLanguage,
-          learningLanguage: formData.learningLanguage,
-          interests: formData.interests,
-          country: formData.country,
-        }),
+        body: JSON.stringify(updatePayload),
       })
       
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to update profile')
+        throw new Error(errorData.error || errorData.message || 'Failed to update profile')
       }
       
       const data = await response.json()
+      console.log("Profile update response:", data)
       
       // Update user in context
       if (updateUser && user) {
         updateUser({
           ...user,
-          displayName: formData.displayName,
-          name: formData.displayName,
-          bio: formData.bio,
-          age: formData.age ? parseInt(formData.age) : undefined,
-          nativeLanguage: formData.nativeLanguage,
-          learningLanguage: formData.learningLanguage,
-          interests: formData.interests,
-          country: formData.country,
+          ...updatePayload
         })
       }
       
