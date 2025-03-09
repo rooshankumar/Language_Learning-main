@@ -1,230 +1,172 @@
-
+const express = require('express');
 const { createServer } = require('http');
-const { parse } = require('url');
-const next = require('next');
 const { Server } = require('socket.io');
-const { MongoClient, ObjectId } = require('mongodb');
+const next = require('next');
+const { ObjectId } = require('mongodb');
+const { connectToDatabase } = require('./lib/mongodb');
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = '0.0.0.0';
-const port = 3000;
-const app = next({ dev, hostname, port });
+const app = next({ dev });
 const handle = app.getRequestHandler();
 
-// MongoDB setup
-const MONGODB_URI = process.env.MONGODB_URI;
-if (!MONGODB_URI) {
-  throw new Error('Please add MongoDB URI to .env file');
-}
+app.prepare().then(async () => {
+  const server = express();
+  const httpServer = createServer(server);
 
-async function startServer() {
-  try {
-    await app.prepare();
-    const server = createServer(async (req, res) => {
-      try {
-        const parsedUrl = parse(req.url, true);
-        await handle(req, res, parsedUrl);
-      } catch (err) {
-        console.error('Error occurred handling request:', err);
-        res.statusCode = 500;
-        res.end('Internal Server Error');
-      }
+  // Initialize Socket.IO
+  const io = new Server(httpServer, {
+    path: '/api/socket',
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST']
+    }
+  });
+
+  // Store active users
+  const activeUsers = new Map();
+  const userSockets = new Map();
+
+  io.on('connection', async (socket) => {
+    const { userId, username } = socket.handshake.auth;
+
+    console.log(`User connected: ${username} (${userId}), socket ID: ${socket.id}`);
+
+    if (!userId) {
+      socket.disconnect();
+      return;
+    }
+
+    // Store user connection
+    activeUsers.set(userId, username);
+    userSockets.set(userId, socket.id);
+
+    // Send list of online users to everyone
+    io.emit('users_online', Array.from(activeUsers.keys()));
+
+    // Handle chat room join
+    socket.on('join_chat', async ({ chatId }) => {
+      if (!chatId) return;
+
+      socket.join(chatId);
+      console.log(`User ${username} joined chat: ${chatId}`);
     });
 
-    // Initialize Socket.io
-    const io = new Server(server, {
-      path: '/api/socket',
-      addTrailingSlash: false,
-      cors: {
-        origin: '*',
-        methods: ['GET', 'POST']
-      }
-    });
-
-    // MongoDB Client
-    const client = new MongoClient(MONGODB_URI, {});
-    await client.connect();
-    const db = client.db();
-    console.log('Connected to MongoDB');
-
-    // Socket.io events
-    io.on('connection', async (socket) => {
-      const { userId, username } = socket.handshake.auth;
-      if (!userId) {
-        return socket.disconnect();
-      }
-
-      console.log(`User connected: ${username} (${userId})`);
-
+    // Handle message sending
+    socket.on('send_message', async (data) => {
       try {
-        // Update user's status in database
-        await db.collection('users').updateOne(
-          { _id: new ObjectId(userId) },
-          { $set: { online: true, lastSeen: new Date() } }
+        const { chatId, content, senderId } = data;
+
+        if (!chatId || !content || !senderId) {
+          return;
+        }
+
+        console.log(`Message from ${username} in chat ${chatId}: ${content}`);
+
+        const { db } = await connectToDatabase();
+
+        // Save message to database
+        const message = {
+          chatId: new ObjectId(chatId),
+          content,
+          sender: new ObjectId(senderId),
+          createdAt: new Date()
+        };
+
+        const result = await db.collection('messages').insertOne(message);
+
+        if (!result.acknowledged) {
+          console.error('Failed to save message to database');
+          return;
+        }
+
+        // Fetch sender details to include in response
+        const sender = await db.collection('users').findOne(
+          { _id: new ObjectId(senderId) },
+          { projection: { name: 1, image: 1, profilePic: 1 } }
         );
-      } catch (error) {
-        console.error('Error updating user status:', error);
-      }
 
-      // Join user's rooms
-      socket.join(userId); // Personal room
-
-      // Send online users to all clients
-      const onlineUsers = await db.collection('users')
-        .find({ online: true })
-        .project({ _id: 1 })
-        .toArray();
-      
-      io.emit('users_online', onlineUsers.map(user => user._id.toString()));
-
-      // Handle joining a chat
-      socket.on('join_chat', ({ chatId }) => {
-        if (chatId) {
-          socket.join(chatId);
-          console.log(`User ${userId} joined chat ${chatId}`);
-        }
-      });
-
-      // Handle sending messages
-      socket.on('send_message', async (data) => {
-        try {
-          const { chatId, content, senderId } = data;
-          
-          if (!chatId || !content || !senderId) {
-            return;
-          }
-
-          // Get sender info
-          const sender = await db.collection('users').findOne(
-            { _id: new ObjectId(senderId) },
-            { projection: { name: 1, image: 1, profilePic: 1 } }
-          );
-
-          if (!sender) {
-            return;
-          }
-
-          // Create new message
-          const newMessage = {
-            chatId,
-            content,
-            sender: {
-              _id: senderId,
-              name: sender.name,
-              image: sender.image || sender.profilePic || null
-            },
-            createdAt: new Date(),
-            _id: new ObjectId()
-          };
-
-          // Save to database
-          await db.collection('messages').insertOne(newMessage);
-
-          // Update last message in chat
-          await db.collection('chats').updateOne(
-            { _id: new ObjectId(chatId) },
-            { 
-              $set: { 
-                lastMessage: newMessage,
-                updatedAt: new Date()
-              } 
-            }
-          );
-
-          // Send to all clients in the room
-          io.to(chatId).emit('receive_message', {
-            chatId,
-            message: newMessage
-          });
-
-          // Update chat preview for all participants
-          const chat = await db.collection('chats').findOne(
-            { _id: new ObjectId(chatId) },
-            { projection: { participants: 1 } }
-          );
-
-          if (chat?.participants) {
-            chat.participants.forEach(participantId => {
-              io.to(participantId.toString()).emit('update_chat_preview', {
-                chatId,
-                lastMessage: newMessage
-              });
-            });
-          }
-        } catch (error) {
-          console.error('Error sending message:', error);
-        }
-      });
-
-      // Handle typing indicators
-      socket.on('typing', async (data) => {
-        const { chatId, username, isTyping } = data;
-        socket.to(chatId).emit('user_typing', {
+        // Format message for clients
+        const formattedMessage = {
+          _id: result.insertedId.toString(),
           chatId,
-          username,
-          isTyping
-        });
-      });
+          content,
+          sender: {
+            _id: senderId,
+            name: sender?.name || 'Unknown User',
+            image: sender?.image,
+            profilePic: sender?.profilePic
+          },
+          createdAt: message.createdAt
+        };
 
-      // Handle disconnection
-      socket.on('disconnect', async () => {
-        console.log(`User disconnected: ${userId}`);
-        try {
-          await db.collection('users').updateOne(
-            { _id: new ObjectId(userId) },
-            { $set: { online: false, lastSeen: new Date() } }
-          );
-          
-          // Update online users list
-          const onlineUsers = await db.collection('users')
-            .find({ online: true })
-            .project({ _id: 1 })
-            .toArray();
-          
-          io.emit('users_online', onlineUsers.map(user => user._id.toString()));
-        } catch (error) {
-          console.error('Error updating user status on disconnect:', error);
+        // Emit message to all users in the chat room
+        io.to(chatId).emit('receive_message', {
+          chatId,
+          message: formattedMessage
+        });
+
+        // Update the chat's last message
+        await db.collection('chats').updateOne(
+          { _id: new ObjectId(chatId) },
+          { 
+            $set: { 
+              lastMessage: formattedMessage,
+              updatedAt: new Date()
+            } 
+          }
+        );
+
+        // Notify all participants about the chat update
+        const chat = await db.collection('chats').findOne(
+          { _id: new ObjectId(chatId) },
+          { projection: { participants: 1 } }
+        );
+
+        if (chat && chat.participants) {
+          chat.participants.forEach(participantId => {
+            const socketId = userSockets.get(participantId.toString());
+            if (socketId) {
+              io.to(socketId).emit('update_chat_preview', {
+                chatId,
+                lastMessage: formattedMessage
+              });
+            }
+          });
         }
+      } catch (error) {
+        console.error('Error handling message:', error);
+      }
+    });
+
+    // Handle typing indicator
+    socket.on('typing', ({ chatId, username, isTyping }) => {
+      socket.to(chatId).emit('user_typing', {
+        chatId,
+        username,
+        isTyping
       });
     });
 
-    // Graceful shutdown handling
-    const gracefulShutdown = () => {
-      console.log('Received shutdown signal, closing connections...');
-      
-      // Close MongoDB connection
-      client.close().then(() => {
-        console.log('MongoDB connection closed');
-        
-        // Close HTTP server
-        server.close(() => {
-          console.log('HTTP server closed');
-          process.exit(0);
-        });
-      }).catch(err => {
-        console.error('Error during shutdown:', err);
-        process.exit(1);
-      });
-      
-      // Force exit after 10 seconds if graceful shutdown fails
-      setTimeout(() => {
-        console.error('Forced shutdown after timeout');
-        process.exit(1);
-      }, 10000);
-    };
-    
-    // Listen for termination signals
-    process.on('SIGTERM', gracefulShutdown);
-    process.on('SIGINT', gracefulShutdown);
-    
-    server.listen(port, hostname, () => {
-      console.log(`Ready on http://${hostname}:${port}`);
+    // Handle disconnection
+    socket.on('disconnect', () => {
+      console.log(`User disconnected: ${username} (${userId})`);
+      activeUsers.delete(userId);
+      userSockets.delete(userId);
+      io.emit('users_online', Array.from(activeUsers.keys()));
     });
+  });
 
-  } catch (err) {
-    console.error('Error starting server:', err);
-    process.exit(1);
-  }
-}
+  // Handle Next.js requests
+  server.all('*', (req, res) => {
+    return handle(req, res);
+  });
 
-startServer();
+  // Start server
+  const PORT = process.env.PORT || 3000;
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    console.log(`> Server listening on port ${PORT}`);
+  });
+}).catch(err => {
+  console.error('Error starting server:', err);
+  process.exit(1);
+});

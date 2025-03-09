@@ -68,11 +68,17 @@ export function useChat(): ChatHookReturn {
         session.user.name || 'Anonymous User'
       );
       
+      // Check connection status periodically
+      const checkConnection = setInterval(() => {
+        setIsConnected(service.isConnected());
+      }, 5000);
+      
       setIsConnected(service.isConnected());
       socketInitialized.current = true;
       
       // Set up cleanup
       return () => {
+        clearInterval(checkConnection);
         chatService.disconnect();
         socketInitialized.current = false;
       };
@@ -119,7 +125,7 @@ export function useChat(): ChatHookReturn {
       (data) => {
         setIsTyping(prev => ({
           ...prev,
-          [currentChatId.current!]: data.isTyping
+          [data.username]: data.isTyping
         }));
       }
     );
@@ -148,8 +154,16 @@ export function useChat(): ChatHookReturn {
 
   // Join chat
   const joinChat = useCallback((chatId: string) => {
+    if (!chatId) {
+      console.error('Cannot join chat: Invalid chat ID');
+      return;
+    }
+    
     currentChatId.current = chatId;
     chatService.joinChat(chatId);
+    
+    // Reset typing indicators when joining a new chat
+    setIsTyping({});
   }, []);
 
   // Send message
