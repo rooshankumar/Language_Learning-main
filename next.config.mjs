@@ -1,16 +1,14 @@
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
   experimental: {
-    serverExternalPackages: ["mongoose"],
+    // serverExternalPackages removed as it's not valid in Next.js 15+
   },
   images: {
-    domains: ['res.cloudinary.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com'],
+    domains: ['res.cloudinary.com'],
   },
-  webpack(config) {
-    config.experiments = { ...config.experiments, topLevelAwait: true };
-    return config;
-  },
+  reactStrictMode: true,
+  swcMinify: true,
 };
 
 export default nextConfig;

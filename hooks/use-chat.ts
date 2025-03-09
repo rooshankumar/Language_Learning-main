@@ -30,6 +30,26 @@ export interface Chat {
   updatedAt: Date;
 }
 
+export async function createChatWithUser(userId: string) {
+  try {
+    const response = await fetch(`/api/chat/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recipientId: userId }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to create chat");
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Chat creation failed:", error);
+    throw error;
+  }
+}
+
 export const useChat = () => {
   const { data: session } = useSession();
   const router = useRouter();

@@ -1,89 +1,57 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import clientPromise from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
 
-import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
-import { ObjectId } from 'mongodb';
-
-interface RouteParams {
-  params: {
-    chatId: string;
-  };
-}
-
-export async function GET(req: Request, { params }: RouteParams) {
+export async function GET(
+  req: Request,
+  { params }: { params: { chatId: string } }
+) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const chatId = params.chatId;
-    if (!chatId || typeof chatId !== 'string') {
-      console.error("Invalid or missing chatId:", chatId);
-      return NextResponse.json(
-        { error: "Invalid chat ID" },
-        { status: 400 }
-      );
+    if (!params?.chatId) {
+      return NextResponse.json({ error: "Chat ID is required" }, { status: 400 });
     }
 
-    console.log("Fetching messages for chat:", chatId);
+    const client = await clientPromise;
+    const db = client.db();
 
-    const { db } = await connectToDatabase();
-    
-    let objectChatId, userId;
     try {
-      objectChatId = new ObjectId(chatId);
-      userId = new ObjectId(session.user.id);
+      const chatObjectId = new ObjectId(params.chatId);
+
+      // Check if the user is a participant in this chat
+      const chat = await db.collection("chats").findOne({
+        _id: chatObjectId,
+        participants: session.user.id
+      });
+
+      if (!chat) {
+        return NextResponse.json(
+          { error: "Chat not found or user not authorized to access it" },
+          { status: 404 }
+        );
+      }
+
+      // Fetch messages for this chat
+      const messages = await db.collection("messages")
+        .find({ chatId: params.chatId })
+        .sort({ createdAt: 1 })
+        .toArray();
+
+      return NextResponse.json(messages);
     } catch (error) {
-      console.error("Error converting IDs to ObjectId:", error);
-      return NextResponse.json(
-        { error: "Invalid ID format" },
-        { status: 400 }
-      );
+      console.error("Invalid ObjectId format:", error);
+      return NextResponse.json({ error: "Invalid chat ID format" }, { status: 400 });
     }
-
-    // Verify user is part of this chat
-    const chat = await db.collection("chats").findOne({
-      _id: objectChatId,
-      participants: userId
-    });
-
-    if (!chat) {
-      console.log(`Chat not found or user ${session.user.id} is not a participant`);
-      return NextResponse.json(
-        { error: "Chat not found or you're not a participant" },
-        { status: 404 }
-      );
-    }
-
-    // Get messages collection
-    const messages = await db.collection("messages")
-      .find({ chatId: objectChatId })
-      .sort({ createdAt: 1 })
-      .toArray();
-
-    // Get sender info for each message
-    const messageWithSenders = await Promise.all(messages.map(async (message) => {
-      const sender = await db.collection("users").findOne(
-        { _id: message.sender },
-        { projection: { _id: 1, name: 1, image: 1, profilePic: 1 } }
-      );
-      
-      return {
-        ...message,
-        sender: sender || { _id: message.sender, name: "Unknown User" }
-      };
-    }));
-
-    return NextResponse.json(messageWithSenders);
   } catch (error) {
-    console.error("Error fetching messages:", error);
+    console.error("Failed to fetch messages:", error);
     return NextResponse.json(
-      { error: "Server error when fetching messages", details: error instanceof Error ? error.message : String(error) },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -198,3 +166,11 @@ export async function POST(req: Request, { params }: RouteParams) {
     );
   }
 }
+
+interface RouteParams {
+  params: {
+    chatId: string;
+  };
+}
+
+import { connectToDatabase } from '@/lib/mongodb';
