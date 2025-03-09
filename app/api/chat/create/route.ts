@@ -43,28 +43,52 @@ export async function POST(req: Request) {
 
     const existingChat = await db.collection("chats").findOne({
       participants: {
-        $all: participantIds
+        $all: [
+          { $elemMatch: { $eq: participantIds[0] } },
+          { $elemMatch: { $eq: participantIds[1] } }
+        ],
+        $size: 2
       }
     });
 
     if (existingChat) {
-      console.log("Chat already exists:", existingChat._id);
-      return NextResponse.json({ chatId: existingChat._id });
+      // Chat already exists, return it
+      return new NextResponse(
+        JSON.stringify(existingChat),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     // Create a new chat
-    const result = await db.collection("chats").insertOne({
+    const newChat = {
       participants: participantIds,
+      messages: [],
+      createdBy: new ObjectId(session.user.id),
       createdAt: new Date(),
-      messages: []
-    });
+      updatedAt: new Date()
+    };
 
-    console.log("New chat created with ID:", result.insertedId);
-    return NextResponse.json({ chatId: result.insertedId });
+    const result = await db.collection("chats").insertOne(newChat);
+    
+    if (!result.acknowledged) {
+      return new NextResponse(
+        JSON.stringify({ error: "Failed to create chat" }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Return the new chat with its ID
+    return new NextResponse(
+      JSON.stringify({ 
+        _id: result.insertedId, 
+        ...newChat 
+      }),
+      { status: 201, headers: { 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
     console.error("Error creating chat:", error);
     return new NextResponse(
-      JSON.stringify({ error: "Failed to create chat" }),
+      JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

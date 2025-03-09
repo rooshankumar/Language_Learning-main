@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageCircle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { createChatWithUser } from '@/hooks/use-chat'; // Import updated function
 
 type User = {
   _id: string
@@ -52,29 +53,15 @@ export function UserList() {
     fetchUsers();
   }, []);
 
-  const startChat = async (userId: string) => {
+  const handleChatClick = async (userId: string) => { //Updated function name
     try {
-      console.log('Starting chat with user ID:', userId);
-      const response = await fetch('/api/chat/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create chat');
-      }
-
-      const data = await response.json();
-      router.push(`/chat/${data.chatId}`);
+      const chatId = await createChatWithUser(userId); //Using updated function
+      router.push(`/chat/${chatId}`);
     } catch (error) {
       console.error('Error starting chat:', error);
       toast({
         title: "Error",
-        description: "Failed to start chat. Please try again.",
+        description: "Failed to create chat",
         variant: "destructive"
       });
     }
@@ -138,7 +125,7 @@ export function UserList() {
           </CardContent>
           <CardFooter>
             <Button 
-              onClick={() => startChat(user._id.toString())}
+              onClick={() => handleChatClick(user._id.toString())} //Updated function call
               variant="secondary" 
               className="w-full"
             >

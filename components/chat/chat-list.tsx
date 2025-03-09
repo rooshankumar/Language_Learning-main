@@ -190,3 +190,226 @@ export function ChatList() {
     </Card>
   )
 }
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Search } from 'lucide-react';
+import { format } from 'date-fns';
+import chatService from '@/lib/chat-service';
+
+interface ChatPreview {
+  _id: string;
+  participants: any[];
+  lastMessage?: {
+    text: string;
+    sender: string;
+    createdAt: Date;
+  };
+  updatedAt: Date;
+}
+
+interface ChatParticipant {
+  _id: string;
+  name: string;
+  image?: string;
+  profilePic?: string;
+  online?: boolean;
+}
+
+export function ChatList() {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const [chats, setChats] = useState<ChatPreview[]>([]);
+  const [participants, setParticipants] = useState<{[key: string]: ChatParticipant}>({});
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+
+  // Fetch chats on component mount
+  useEffect(() => {
+    if (!session?.user) return;
+
+    const fetchChats = async () => {
+      try {
+        const response = await fetch('/api/chat');
+        if (!response.ok) {
+          throw new Error('Failed to fetch chats');
+        }
+        
+        const data = await response.json();
+        setChats(data.chats || []);
+        
+        // Extract unique participant IDs (excluding current user)
+        const participantIds = new Set<string>();
+        data.chats.forEach((chat: ChatPreview) => {
+          chat.participants.forEach((participantId: string) => {
+            if (participantId !== session.user.id) {
+              participantIds.add(participantId);
+            }
+          });
+        });
+        
+        // Fetch participant details
+        if (participantIds.size > 0) {
+          const participantsResponse = await fetch('/api/community/users?ids=' + Array.from(participantIds).join(','));
+          if (participantsResponse.ok) {
+            const participantsData = await participantsResponse.json();
+            
+            const participantsMap: {[key: string]: ChatParticipant} = {};
+            participantsData.users.forEach((user: ChatParticipant) => {
+              participantsMap[user._id] = {
+                ...user,
+                image: user.profilePic || user.image || '/placeholder-user.jpg'
+              };
+            });
+            
+            setParticipants(participantsMap);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching chats:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchChats();
+    
+    // Subscribe to chat updates
+    const unsubscribeChatUpdates = chatService.subscribeToChatUpdates((data) => {
+      setChats(prevChats => {
+        return prevChats.map(chat => {
+          if (chat._id === data.chatId) {
+            return {
+              ...chat,
+              lastMessage: data.lastMessage,
+              updatedAt: new Date()
+            };
+          }
+          return chat;
+        });
+      });
+    });
+    
+    // Subscribe to online users
+    const unsubscribeOnlineUsers = chatService.subscribeToOnlineUsers((users) => {
+      setOnlineUsers(users);
+    });
+    
+    return () => {
+      unsubscribeChatUpdates();
+      unsubscribeOnlineUsers();
+    };
+  }, [session?.user]);
+
+  // Navigate to chat when clicked
+  const handleChatClick = (chatId: string) => {
+    router.push(`/chat/${chatId}`);
+  };
+
+  // Filter chats based on search term
+  const filteredChats = chats.filter(chat => {
+    if (!searchTerm) return true;
+    
+    // Find the other participant
+    const otherParticipantId = chat.participants.find(id => id !== session?.user?.id);
+    if (!otherParticipantId) return false;
+    
+    const participant = participants[otherParticipantId];
+    if (!participant) return false;
+    
+    return participant.name.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  // Sort chats by most recent activity
+  const sortedChats = [...filteredChats].sort((a, b) => {
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+
+  if (!session?.user) {
+    return <div className="flex items-center justify-center h-full">Please sign in to view chats</div>;
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="p-4 border-b">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
+          <Input
+            placeholder="Search chats"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto p-2">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            Loading chats...
+          </div>
+        ) : sortedChats.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-4 text-center">
+            <p>No chats found.</p>
+            <p className="text-sm mt-2">Start a conversation from the Community tab.</p>
+          </div>
+        ) : (
+          sortedChats.map(chat => {
+            // Find the other participant
+            const otherParticipantId = chat.participants.find(id => id !== session.user.id);
+            const participant = otherParticipantId ? participants[otherParticipantId] : null;
+            const isOnline = participant && onlineUsers.includes(otherParticipantId);
+            
+            return (
+              <Card
+                key={chat._id}
+                className="mb-2 cursor-pointer hover:bg-accent transition-colors"
+                onClick={() => handleChatClick(chat._id)}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="relative">
+                      <Avatar>
+                        <AvatarImage src={participant?.image || "/placeholder-user.jpg"} alt={participant?.name} />
+                        <AvatarFallback>{participant?.name?.charAt(0) || "U"}</AvatarFallback>
+                      </Avatar>
+                      {isOnline && (
+                        <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-background" />
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-sm font-medium truncate">
+                          {participant?.name || "Unknown User"}
+                        </h3>
+                        {chat.lastMessage?.createdAt && (
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(chat.lastMessage.createdAt), 'HH:mm')}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground truncate mt-1">
+                        {chat.lastMessage?.text || "No messages yet"}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default ChatList;

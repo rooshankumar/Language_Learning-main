@@ -37,3 +37,27 @@ export default function ChatPage() {
     </AppShell>
   )
 }
+'use client';
+
+import { useSession } from 'next-auth/react';
+import { AppShell } from '@/components/app-shell';
+import ChatList from '@/components/chat/chat-list';
+
+export default function ChatsPage() {
+  const { data: session, status } = useSession();
+
+  return (
+    <AppShell>
+      <div className="flex flex-col h-full">
+        <div className="p-4 border-b">
+          <h1 className="text-xl font-bold">Messages</h1>
+          <p className="text-sm text-muted-foreground">Chat with language partners</p>
+        </div>
+        
+        <div className="flex-1 overflow-hidden">
+          <ChatList />
+        </div>
+      </div>
+    </AppShell>
+  );
+}
