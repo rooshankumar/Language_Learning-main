@@ -1,7 +1,6 @@
-
 run = "npm run dev"
 hidden = [".build", ".config"]
-modules = ["nodejs-20"]
+modules = ["nodejs-20", "web", "nix"]
 
 [[deployment.rewrites]]
 from = "/*"
