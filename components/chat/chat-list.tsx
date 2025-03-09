@@ -1,166 +1,81 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { format, formatDistanceToNow } from 'date-fns';
-import { MessageSquare, User, Users } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { formatDistanceToNow } from "date-fns";
+
+interface ChatPartner {
+  _id: string;
+  name: string;
+  image?: string;
+  profilePic?: string;
+}
 
 interface Chat {
   _id: string;
   participants: string[];
   lastMessage?: {
     content: string;
-    sender: {
-      _id: string;
-      name: string;
-    };
     createdAt: string;
   };
   updatedAt: string;
-  createdAt: string;
-}
-
-interface ChatPartner {
-  _id: string;
-  name: string;
-  email: string;
-  image?: string;
-  profilePic?: string;
-  online?: boolean;
-  lastSeen?: string;
-}
-
-function ChatPreview({ chat, currentUserId }: { chat: Chat; currentUserId: string }) {
-  const [chatPartner, setChatPartner] = useState<ChatPartner | null>(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-
-  useEffect(() => {
-    async function fetchChatPartner() {
-      try {
-        // Find the other participant (not the current user)
-        const partnerId = chat.participants.find(id => id !== currentUserId);
-
-        if (!partnerId) {
-          setLoading(false);
-          return;
-        }
-
-        const response = await fetch(`/api/user/${partnerId}`);
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch chat partner');
-        }
-
-        const data = await response.json();
-        setChatPartner(data);
-      } catch (error) {
-        console.error('Error fetching chat partner:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchChatPartner();
-  }, [chat, currentUserId]);
-
-  const handleClick = () => {
-    router.push(`/chat/${chat._id}`);
-  };
-
-  if (loading) {
-    return (
-      <Card className="mb-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
-        <CardHeader className="p-4">
-          <div className="flex items-center space-x-4">
-            <Skeleton className="h-12 w-12 rounded-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-3 w-40" />
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-    );
-  }
-
-  if (!chatPartner) {
-    return null;
-  }
-
-  const isOnline = chatPartner.online || false;
-  const lastMessageDate = chat.lastMessage?.createdAt ? new Date(chat.lastMessage.createdAt) : new Date(chat.updatedAt);
-  const timeAgo = formatDistanceToNow(lastMessageDate, { addSuffix: true });
-
-  const displayName = chatPartner.name || chatPartner.email.split('@')[0];
-  const avatarUrl = chatPartner.image || chatPartner.profilePic;
-
-  const lastMessagePreview = chat.lastMessage 
-    ? `${chat.lastMessage.sender._id === currentUserId ? 'You: ' : ''}${chat.lastMessage.content}`
-    : 'Start a conversation';
-
-  return (
-    <Card className="mb-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" onClick={handleClick}>
-      <CardHeader className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Avatar className="h-12 w-12">
-                {avatarUrl ? (
-                  <AvatarImage src={avatarUrl} alt={displayName} />
-                ) : (
-                  <AvatarFallback>
-                    {displayName.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                )}
-              </Avatar>
-              {isOnline && (
-                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500" />
-              )}
-            </div>
-            <div>
-              <CardTitle className="text-lg">{displayName}</CardTitle>
-              <CardDescription className="line-clamp-1 text-sm">
-                {lastMessagePreview}
-              </CardDescription>
-            </div>
-          </div>
-          <div className="text-xs text-gray-500">{timeAgo}</div>
-        </div>
-      </CardHeader>
-    </Card>
-  );
+  partner?: ChatPartner;
 }
 
 export default function ChatList() {
+  const router = useRouter();
   const { data: session } = useSession();
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
   useEffect(() => {
-    async function fetchChats() {
-      if (!session?.user?.id) return;
-
+    async function fetchChatPartner(chatId: string) {
       try {
-        const response = await fetch('/api/chat');
+        const res = await fetch(`/api/chat/${chatId}/partner`);
+        if (!res.ok) {
+          throw new Error(`Failed to fetch partner: ${res.status}`);
+        }
+        const data = await res.json();
+        return data;
+      } catch (error) {
+        console.error("Failed to fetch chat partner:", error);
+        return null; // Handle missing partner gracefully
+      }
+    }
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch chats');
+    async function fetchChats() {
+      try {
+        setLoading(true);
+        const res = await fetch("/api/chat");
+        if (!res.ok) {
+          throw new Error(`Failed to fetch chats: ${res.status}`);
         }
 
-        const data = await response.json();
-        setChats(data);
+        const data = await res.json();
+
+        if (!Array.isArray(data)) {
+          console.error("Invalid chat data:", data);
+          setChats([]);
+          return;
+        }
+
+        // Get partner info for each chat
+        const chatsWithPartner = await Promise.all(
+          data.map(async (chat) => {
+            const partner = await fetchChatPartner(chat._id);
+            return { ...chat, partner };
+          })
+        );
+
+        setChats(chatsWithPartner);
+        setError(null);
       } catch (error: any) {
-        console.error('Error fetching chats:', error);
-        setError(error.message || 'Failed to load chats');
+        console.error("Failed to fetch chats:", error);
+        setError(error.message || "Failed to load chats");
+        setChats([]);
       } finally {
         setLoading(false);
       }
@@ -169,34 +84,23 @@ export default function ChatList() {
     if (session?.user) {
       fetchChats();
     }
-  }, [session]);
+  }, [session?.user]);
 
-  const handleNewChat = () => {
-    router.push('/community');
+  const navigateToChat = (chatId: string) => {
+    router.push(`/chat/${chatId}`);
   };
 
   if (loading) {
     return (
-      <div className="space-y-4 p-4">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Chats</h2>
-          <Button onClick={handleNewChat}>
-            <Users className="mr-2 h-4 w-4" />
-            Find Users
-          </Button>
-        </div>
-        {[1, 2, 3].map(i => (
-          <Card key={i} className="mb-4">
-            <CardHeader className="p-4">
-              <div className="flex items-center space-x-4">
-                <Skeleton className="h-12 w-12 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-3 w-40" />
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
+      <div className="flex flex-col space-y-2 p-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex items-center space-x-4 p-3 animate-pulse">
+            <div className="rounded-full bg-gray-300 dark:bg-gray-700 h-12 w-12"></div>
+            <div className="flex-1 space-y-2">
+              <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-3/4"></div>
+              <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-1/2"></div>
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -204,71 +108,60 @@ export default function ChatList() {
 
   if (error) {
     return (
-      <div className="p-4">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Chats</h2>
-          <Button onClick={handleNewChat}>
-            <Users className="mr-2 h-4 w-4" />
-            Find Users
-          </Button>
-        </div>
-        <Card className="bg-red-50 dark:bg-red-900/20">
-          <CardHeader>
-            <CardTitle>Error</CardTitle>
-            <CardDescription>{error}</CardDescription>
-          </CardHeader>
-          <CardFooter>
-            <Button variant="outline" onClick={() => setLoading(true)}>
-              Retry
-            </Button>
-          </CardFooter>
-        </Card>
+      <div className="text-center p-4 text-red-500">
+        <p>Error: {error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-2 text-blue-500 hover:underline"
+        >
+          Try again
+        </button>
       </div>
     );
   }
 
-  // Make sure chats is always an array
-  const chatsList = Array.isArray(chats) ? chats : [];
+  if (chats.length === 0) {
+    return (
+      <div className="text-center p-4 text-gray-500">
+        <p>No conversations yet</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Chats</h2>
-        <Button onClick={handleNewChat}>
-          <Users className="mr-2 h-4 w-4" />
-          Find Users
-        </Button>
-      </div>
-
-      {chats.length === 0 ? (
-        <Card className="text-center p-8">
-          <CardHeader>
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-              <MessageSquare className="h-8 w-8 text-primary" />
-            </div>
-            <CardTitle>No conversations yet</CardTitle>
-            <CardDescription>
-              Start a chat with another learner to begin a conversation.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="flex justify-center">
-            <Button onClick={handleNewChat}>
-              <User className="mr-2 h-4 w-4" />
-              Find Users
-            </Button>
-          </CardFooter>
-        </Card>
-      ) : (
-        <div>
-          {chats.map((chat) => (
-            <ChatPreview 
-              key={chat._id} 
-              chat={chat} 
-              currentUserId={session?.user?.id!} 
+    <div className="flex flex-col space-y-1">
+      {chats.map((chat) => (
+        <div
+          key={chat._id}
+          className="flex items-center p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md cursor-pointer"
+          onClick={() => navigateToChat(chat._id)}
+        >
+          <Avatar className="h-12 w-12 mr-4">
+            <AvatarImage 
+              src={chat.partner?.image || chat.partner?.profilePic || ""} 
+              alt={chat.partner?.name || "User"} 
             />
-          ))}
+            <AvatarFallback>
+              {chat.partner?.name ? chat.partner.name.charAt(0).toUpperCase() : "U"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-baseline">
+              <h3 className="font-medium truncate">
+                {chat.partner?.name || "Unknown User"}
+              </h3>
+              {chat.lastMessage?.createdAt && (
+                <span className="text-xs text-gray-500">
+                  {formatDistanceToNow(new Date(chat.lastMessage.createdAt), { addSuffix: true })}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-gray-500 truncate">
+              {chat.lastMessage?.content || "No messages yet"}
+            </p>
+          </div>
         </div>
-      )}
+      ))}
     </div>
   );
 }

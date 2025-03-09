@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Input } from '@/components/ui/input';
@@ -40,7 +39,7 @@ export default function ChatsPage() {
           <Button variant="outline">Filters</Button>
           <Button>New Chat</Button>
         </div>
-        
+
         <div className="grid gap-4">
           <ChatList />
         </div>
