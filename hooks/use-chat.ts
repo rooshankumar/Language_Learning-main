@@ -14,6 +14,7 @@ export interface ChatHookReturn {
   loadChatHistory: (chatId: string) => Promise<void>;
   joinChat: (chatId: string) => void;
   setTyping: (chatId: string, isTyping: boolean) => void;
+  isCurrentUser: (message: any) => boolean;
 }
 
 export async function createChatWithUser(userId: string): Promise<string | null> {

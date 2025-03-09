@@ -6,6 +6,7 @@
   padding: 16px;
   overflow-y: auto;
   width: 100%;
+  height: 100%;
 }
 
 /* Individual message */
@@ -15,6 +16,7 @@
   border-radius: 16px;
   position: relative;
   word-wrap: break-word;
+  margin-bottom: 8px;
 }
 
 /* Sent message (by current user) */
@@ -25,6 +27,7 @@
   text-align: right;
   align-self: flex-end;
   margin-left: auto;
+  margin-right: 0;
 }
 
 /* Received message (from other users) */
@@ -34,6 +37,7 @@
   border-bottom-left-radius: 4px;
   text-align: left;
   align-self: flex-start;
+  margin-left: 0;
   margin-right: auto;
 }
 

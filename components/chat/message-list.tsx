@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from "react";
 import MessageBubble from "./message-bubble";
 
@@ -12,35 +11,37 @@ interface Message {
 interface MessageListProps {
   messages: Message[];
   isLoading?: boolean;
+  isCurrentUser: (message: Message) => boolean;
 }
 
-const MessageList = ({ messages, isLoading = false }: MessageListProps) => {
+const MessageList = ({ messages, isLoading = false, isCurrentUser }: MessageListProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Ensure messages is always an array
+  const messageList = Array.isArray(messages) ? messages : [];
 
   // Scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [messageList]);
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-full">Loading messages...</div>;
   }
 
-  if (!messages || messages.length === 0) {
-    return (
-      <div className="flex justify-center items-center h-full text-muted-foreground">
-        No messages yet. Start the conversation!
-      </div>
-    );
-  }
-
   return (
     <div className="chat-messages">
-      {messages.map((message) => (
-        <MessageBubble key={message._id} message={message} />
-      ))}
+      {messageList.length > 0 ? (
+        messageList.map((message) => (
+          <MessageBubble key={message._id} message={message} isCurrentUser={isCurrentUser(message)} />
+        ))
+      ) : (
+        <div className="flex items-center justify-center h-full p-4 text-gray-500">
+          <p>No messages yet. Start a conversation!</p>
+        </div>
+      )}
       <div ref={messagesEndRef} />
     </div>
   );

@@ -227,6 +227,9 @@ export default function ChatList() {
     );
   }
 
+  // Make sure chats is always an array
+  const chatsList = Array.isArray(chats) ? chats : [];
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex justify-between items-center mb-6">
