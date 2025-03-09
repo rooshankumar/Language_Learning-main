@@ -413,3 +413,100 @@ export function ChatList() {
 }
 
 export default ChatList;
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { useRouter } from 'next/navigation';
+
+export default function ChatList() {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const [chats, setChats] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchChats() {
+      try {
+        const response = await fetch('/api/chat');
+        if (response.ok) {
+          const data = await response.json();
+          setChats(data);
+        }
+      } catch (error) {
+        console.error('Error fetching chats:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (session) {
+      fetchChats();
+    }
+  }, [session]);
+
+  if (loading) {
+    return <div className="flex justify-center py-8">Loading conversations...</div>;
+  }
+
+  if (chats.length === 0) {
+    return (
+      <Card className="border border-dashed bg-muted/40">
+        <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+          <div className="mb-4 rounded-full bg-primary/10 p-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-primary"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          </div>
+          <h3 className="mb-2 text-lg font-semibold">No conversations yet</h3>
+          <p className="text-sm text-muted-foreground mb-4 max-w-md">
+            Start a new conversation with language partners or AI assistants to practice your skills
+          </p>
+          <Button onClick={() => router.push('/community')}>Find Language Partners</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {chats.map((chat) => (
+        <Card key={chat._id} className="hover:shadow-md transition-shadow">
+          <CardHeader className="pb-2">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-2">
+                <Avatar>
+                  <AvatarImage src={chat.participants[0]?.profileImage || '/placeholder-user.jpg'} />
+                  <AvatarFallback>{chat.participants[0]?.name?.[0] || '?'}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <CardTitle className="text-base">{chat.participants[0]?.name || 'User'}</CardTitle>
+                  <CardDescription className="text-xs">
+                    {new Date(chat.updatedAt).toLocaleDateString()}
+                  </CardDescription>
+                </div>
+              </div>
+              {chat.unreadCount > 0 && (
+                <Badge variant="default" className="ml-auto">
+                  {chat.unreadCount}
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {chat.lastMessage?.content || 'Start a conversation'}
+            </p>
+          </CardContent>
+          <CardFooter className="pt-1">
+            <Button variant="ghost" className="w-full" onClick={() => router.push(`/chat/${chat._id}`)}>
+              Open Chat
+            </Button>
+          </CardFooter>
+        </Card>
+      ))}
+    </div>
+  );
+}
