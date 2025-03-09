@@ -110,7 +110,7 @@ export async function PUT(request: NextRequest) {
 
     // Return the updated user
     const updatedUser = await db.collection('users').findOne(query);
-    return NextResponse.json(updatedUser);
+    return NextResponse.json({ user: updatedUser });
   } catch (error) {
     console.error("Error updating profile:", error);
     return NextResponse.json({ error: 'Internal server error', message: (error as Error).message }, { status: 500 });

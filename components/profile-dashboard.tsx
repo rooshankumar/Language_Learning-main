@@ -118,11 +118,11 @@ export function ProfileDashboard() {
       const data = await response.json()
       console.log("Profile update response:", data)
       
-      // Update user in context
+      // Update user in context with the data returned from the server
       if (updateUser && user) {
         updateUser({
           ...user,
-          ...updatePayload
+          ...(data.user || data) // Handle both response formats for backward compatibility
         })
       }
       
