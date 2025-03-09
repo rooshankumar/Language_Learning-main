@@ -1,157 +1,202 @@
 
-"use client";
+'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
-import { Avatar } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Smile } from 'lucide-react';
+import { Send, Smile } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Message } from '@/lib/chat-service';
+import { useSession } from 'next-auth/react';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
-import { formatDistanceToNow } from 'date-fns';
-import { useSession } from 'next-auth/react';
 
-interface ChatInterfaceProps {
-  messages: any[];
-  onSendMessage: (message: string) => void;
-  chatPartner: {
-    name: string;
-    image: string;
-    online?: boolean;
-    lastSeen?: Date;
-  } | null;
-  isTyping: { [key: string]: boolean };
+interface ChatPartner {
+  _id: string;
+  name: string;
+  image?: string;
+  online?: boolean;
+  lastSeen?: Date;
 }
 
-export function ChatInterface({ messages, onSendMessage, chatPartner, isTyping }: ChatInterfaceProps) {
-  const [newMessage, setNewMessage] = useState('');
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+interface ChatInterfaceProps {
+  messages: Message[];
+  onSendMessage: (content: string) => void;
+  chatPartner: ChatPartner | null;
+  isTyping?: boolean;
+  onTyping?: (isTyping: boolean) => void;
+}
+
+export function ChatInterface({
+  messages,
+  onSendMessage,
+  chatPartner,
+  isTyping,
+  onTyping
+}: ChatInterfaceProps) {
   const { data: session } = useSession();
+  const [messageText, setMessageText] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // Scroll to bottom when messages change
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Scroll to bottom of messages
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
-  
+  }, [messages, isTyping]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newMessage.trim()) {
-      onSendMessage(newMessage);
-      setNewMessage('');
+  const handleSendMessage = () => {
+    if (messageText.trim() === '') return;
+    
+    onSendMessage(messageText);
+    setMessageText('');
+    setShowEmojiPicker(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
-  const addEmoji = (emoji: any) => {
-    setNewMessage(prev => prev + emoji.native);
-    setShowEmojiPicker(false);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessageText(e.target.value);
+    
+    // Handle typing indicator
+    if (onTyping) {
+      onTyping(true);
+      
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Set new timeout to stop typing indicator after 2 seconds
+      typingTimeoutRef.current = setTimeout(() => {
+        onTyping(false);
+      }, 2000);
+    }
+  };
+
+  const handleEmojiSelect = (emoji: any) => {
+    setMessageText(prev => prev + emoji.native);
+  };
+
+  const formatTime = (dateString: string | Date) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
     <div className="flex flex-col h-full">
-      {/* Chat Header */}
-      <div className="border-b p-3 flex items-center space-x-3">
-        {chatPartner && (
-          <>
-            <Avatar>
-              <img 
-                src={chatPartner.image || '/placeholder-user.jpg'} 
-                alt={chatPartner.name || 'User'} 
-                className="h-10 w-10 rounded-full object-cover"
-              />
-            </Avatar>
-            <div>
-              <h3 className="font-medium">{chatPartner.name}</h3>
-              <p className="text-xs text-muted-foreground">
-                {chatPartner.online ? 'Online' : chatPartner.lastSeen ? `Last seen ${formatDistanceToNow(new Date(chatPartner.lastSeen))} ago` : 'Offline'}
-              </p>
-            </div>
-          </>
-        )}
+      {/* Chat header */}
+      <div className="p-4 border-b flex items-center space-x-4">
+        <Avatar>
+          <AvatarImage src={chatPartner?.image || ''} />
+          <AvatarFallback>
+            {chatPartner?.name?.charAt(0) || '?'}
+          </AvatarFallback>
+        </Avatar>
+        <div>
+          <h2 className="font-semibold">{chatPartner?.name || 'Unknown User'}</h2>
+          <p className="text-sm text-muted-foreground">
+            {chatPartner?.online ? 'Online' : chatPartner?.lastSeen ? `Last seen: ${formatTime(chatPartner.lastSeen)}` : 'Offline'}
+          </p>
+        </div>
       </div>
-      
-      {/* Chat Messages */}
-      <ScrollArea className="flex-1 p-4">
+
+      {/* Messages */}
+      <div className="flex-1 p-4 overflow-y-auto">
         <div className="space-y-4">
-          {messages.map((message, index) => (
-            <div 
-              key={message._id || index} 
-              className={`flex ${message.sender._id === session?.user?.id ? 'justify-end' : 'justify-start'}`}
-            >
-              <Card className={`max-w-[70%] p-3 ${message.sender._id === session?.user?.id ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                {message.sender._id !== session?.user?.id && (
-                  <div className="flex items-center space-x-2 mb-1">
-                    <img 
-                      src={message.sender.profilePic || message.sender.image || '/placeholder-user.jpg'} 
-                      alt={message.sender.name} 
-                      className="h-6 w-6 rounded-full object-cover"
-                    />
-                    <span className="text-xs font-medium">{message.sender.name}</span>
+          {messages.map((message) => {
+            const isOwnMessage = message.sender._id === session?.user?.id;
+            
+            return (
+              <div
+                key={message._id}
+                className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className="flex items-end space-x-2">
+                  {!isOwnMessage && (
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage src={message.sender.image || message.sender.profilePic || ''} />
+                      <AvatarFallback>
+                        {message.sender.name?.charAt(0) || '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div
+                    className={`px-4 py-2 rounded-lg max-w-xs sm:max-w-md ${
+                      isOwnMessage
+                        ? 'bg-primary text-white'
+                        : 'bg-muted'
+                    }`}
+                  >
+                    <p>{message.content}</p>
+                    <p className="text-xs opacity-70 text-right mt-1">
+                      {formatTime(message.createdAt)}
+                    </p>
                   </div>
-                )}
-                <p>{message.content}</p>
-                <p className="text-xs opacity-70 text-right mt-1">
-                  {message.createdAt ? formatDistanceToNow(new Date(message.createdAt), { addSuffix: true }) : ''}
-                </p>
-              </Card>
-            </div>
-          ))}
-          
-          {/* Typing indicator */}
-          {Object.entries(isTyping).map(([username, typing]) => 
-            typing && (
-              <div key={username} className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <span>{username} is typing...</span>
-                <div className="typing-animation">
-                  <span></span>
-                  <span></span>
-                  <span></span>
                 </div>
               </div>
-            )
+            );
+          })}
+          
+          {/* Typing indicator */}
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className="px-4 py-2 rounded-lg bg-muted max-w-fit">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0s' }}></div>
+                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                </div>
+              </div>
+            </div>
           )}
           
           <div ref={messagesEndRef} />
         </div>
-      </ScrollArea>
-      
-      {/* Message Input */}
-      <div className="border-t p-3">
-        <form onSubmit={handleSubmit} className="flex items-end space-x-2">
-          <div className="relative flex-1">
-            <Textarea
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
-              className="min-h-[80px] resize-none"
+      </div>
+
+      {/* Message input */}
+      <div className="p-4 border-t relative">
+        {showEmojiPicker && (
+          <div className="absolute bottom-16 right-4">
+            <Picker
+              data={data}
+              onEmojiSelect={handleEmojiSelect}
+              theme="light"
+              previewPosition="none"
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute bottom-2 right-2"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            >
-              <Smile className="h-5 w-5" />
-            </Button>
-            
-            {showEmojiPicker && (
-              <div className="absolute bottom-full right-0 mb-2">
-                <Picker data={data} onEmojiSelect={addEmoji} />
-              </div>
-            )}
           </div>
-          <Button type="submit">Send</Button>
-        </form>
+        )}
+        <div className="flex space-x-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            type="button"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          >
+            <Smile className="h-5 w-5" />
+          </Button>
+          <Input
+            placeholder="Type a message..."
+            value={messageText}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            className="flex-1"
+          />
+          <Button type="submit" onClick={handleSendMessage} disabled={!messageText.trim()}>
+            <Send className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
     </div>
   );
 }
-
-export default ChatInterface;

@@ -1,15 +1,25 @@
 import { Server } from 'socket.io';
-import { ObjectId } from 'mongodb';
-import clientPromise from '@/lib/mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 
-// Use this function to get MongoDB connection
+// MongoDB setup
+const MONGODB_URI = process.env.MONGODB_URI;
+let cachedDb = null;
+
 async function connectToDatabase() {
-  return await clientPromise;
+  if (cachedDb) {
+    return { db: cachedDb };
+  }
+
+  const client = new MongoClient(MONGODB_URI, {});
+  await client.connect();
+  const db = client.db();
+  cachedDb = db;
+  return { db };
 }
 
 export default async function handler(req, res) {
   if (res.socket.server.io) {
-    // Socket.io server is already running
+    console.log('Socket is already running');
     res.end();
     return;
   }
@@ -18,21 +28,16 @@ export default async function handler(req, res) {
     path: '/api/socket',
     addTrailingSlash: false,
   });
+
   res.socket.server.io = io;
 
   // Store connected users
   const connectedUsers = new Map(); // userId -> { socketId, username }
 
-  // Set up socket.io connection handler
   io.on('connection', async (socket) => {
-    // Get user data from auth
-    const userId = socket.handshake.auth.userId;
-    const username = socket.handshake.auth.username;
-
+    const { userId, username } = socket.handshake.auth;
     if (!userId) {
-      socket.emit('error', { message: 'Authentication required' });
-      socket.disconnect();
-      return;
+      return socket.disconnect();
     }
 
     console.log(`User connected: ${username} (${userId})`);
@@ -94,11 +99,11 @@ export default async function handler(req, res) {
         // Update last message in chat
         await db.collection('chats').updateOne(
           { _id: new ObjectId(chatId) },
-          { 
-            $set: { 
+          {
+            $set: {
               lastMessage: content,
               updatedAt: new Date()
-            } 
+            }
           }
         );
 

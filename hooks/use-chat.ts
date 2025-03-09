@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import chatService, { Message, Chat, createChat } from '@/lib/chat-service';
+import chatService, { Message } from '@/lib/chat-service';
 import { useSession } from 'next-auth/react';
 
 export interface ChatHookReturn {
@@ -33,94 +33,109 @@ export function useChat(): ChatHookReturn {
     if (!session?.user || socketInitialized.current) return;
 
     try {
-      chatService.initialize(
+      const service = chatService.initialize(
         session.user.id,
         session.user.name || 'Anonymous User'
       );
       
-      setIsConnected(true);
+      setIsConnected(service.isConnected());
       socketInitialized.current = true;
-
-      // Subscribe to online users
-      const unsubscribeOnlineUsers = chatService.subscribeToOnlineUsers((users) => {
-        setOnlineUsers(users);
-      });
-
+      
+      // Set up cleanup
       return () => {
-        unsubscribeOnlineUsers();
         chatService.disconnect();
         socketInitialized.current = false;
       };
     } catch (error: any) {
-      console.error('Error initializing chat:', error);
+      console.error('Error initializing chat service:', error);
       setError(error.message || 'Failed to connect to chat service');
     }
-  }, [session]);
+  }, [session?.user]);
 
-  // Join a chat room
-  const joinChat = useCallback((chatId: string) => {
-    if (!isConnected) {
-      setError('Cannot join chat: not connected');
-      return;
-    }
+  // Handle messages
+  useEffect(() => {
+    if (!currentChatId.current) return;
     
-    currentChatId.current = chatId;
-    chatService.joinChat(chatId);
+    const unsubscribe = chatService.subscribeToMessages(
+      currentChatId.current,
+      (message) => {
+        setMessages((prevMessages) => {
+          // Check if message already exists
+          const exists = prevMessages.some(m => m._id === message._id);
+          if (exists) return prevMessages;
+          return [...prevMessages, message];
+        });
+      }
+    );
     
-    // Subscribe to messages for this chat
-    const unsubscribeMessages = chatService.subscribeToMessages(chatId, (message) => {
-      setMessages(prev => [...prev, message]);
+    return unsubscribe;
+  }, [currentChatId.current]);
+
+  // Handle online users
+  useEffect(() => {
+    const unsubscribe = chatService.subscribeToOnlineUsers((users) => {
+      setOnlineUsers(users);
     });
     
-    // Subscribe to typing indicators for this chat
-    const unsubscribeTyping = chatService.subscribeToTypingIndicator(chatId, (data) => {
-      setIsTyping(prev => ({
-        ...prev,
-        [data.username]: data.isTyping
-      }));
-    });
+    return unsubscribe;
+  }, []);
+
+  // Handle typing indicators
+  useEffect(() => {
+    if (!currentChatId.current) return;
     
-    return () => {
-      unsubscribeMessages();
-      unsubscribeTyping();
-    };
-  }, [isConnected]);
-
-  // Send a message
-  const sendMessage = useCallback((content: string, chatId: string) => {
-    if (!isConnected) {
-      setError('Cannot send message: not connected');
-      return false;
-    }
-
-    return chatService.sendMessage(chatId, content);
-  }, [isConnected]);
-
-  // Send typing indicator
-  const setTyping = useCallback((chatId: string, isTyping: boolean) => {
-    if (!isConnected) return;
-    chatService.sendTypingIndicator(chatId, isTyping);
-  }, [isConnected]);
+    const unsubscribe = chatService.subscribeToTypingIndicator(
+      currentChatId.current,
+      (data) => {
+        setIsTyping(prev => ({
+          ...prev,
+          [currentChatId.current!]: data.isTyping
+        }));
+      }
+    );
+    
+    return unsubscribe;
+  }, [currentChatId.current]);
 
   // Load chat history
   const loadChatHistory = useCallback(async (chatId: string) => {
     try {
       const response = await fetch(`/api/chat/${chatId}/messages`);
+      
       if (!response.ok) {
-        throw new Error('Failed to load chat history');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch messages');
       }
-
+      
       const data = await response.json();
-      setMessages(data.messages || []);
+      setMessages(data);
     } catch (error: any) {
       console.error('Error loading chat history:', error);
       setError(error.message || 'Failed to load chat history');
+      throw error;
     }
+  }, []);
+
+  // Join chat
+  const joinChat = useCallback((chatId: string) => {
+    currentChatId.current = chatId;
+    chatService.joinChat(chatId);
+  }, []);
+
+  // Send message
+  const sendMessage = useCallback((content: string, chatId: string) => {
+    if (!content.trim()) return false;
+    return chatService.sendMessage(chatId, content);
+  }, []);
+
+  // Set typing indicator
+  const setTyping = useCallback((chatId: string, isTyping: boolean) => {
+    chatService.sendTypingIndicator(chatId, isTyping);
   }, []);
 
   return {
     messages,
-    isConnected,
+    isConnected: isConnected && socketInitialized.current,
     isTyping,
     onlineUsers,
     error,
@@ -129,24 +144,4 @@ export function useChat(): ChatHookReturn {
     joinChat,
     setTyping
   };
-}
-
-export default useChat;
-
-// Helper function for community page to create a chat with another user
-export async function createChatWithUser(recipientId: string): Promise<string> {
-  try {
-    if (!recipientId) {
-      throw new Error('User ID is required');
-    }
-    
-    const result = await createChat('', recipientId);
-    if (result.success && result.chat) {
-      return result.chat._id;
-    }
-    throw new Error(result.error || 'Failed to create chat');
-  } catch (err: any) {
-    console.error('Error creating chat:', err);
-    throw err;
-  }
 }

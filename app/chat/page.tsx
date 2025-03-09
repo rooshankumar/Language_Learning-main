@@ -1,19 +1,22 @@
 
 'use client';
 
-import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
-import { AppShell } from '@/components/app-shell';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { useSession } from 'next-auth/react';
+import { AppShell } from '@/components/app-shell';
 import ChatList from '@/components/chat/chat-list';
+import { redirect } from 'next/navigation';
 
-export default function ChatPage() {
+export default function ChatsPage() {
   const { data: session, status } = useSession();
 
-  // Redirect to sign-in if not authenticated
-  if (status === 'unauthenticated') {
+  if (status === 'loading') {
+    return <div>Loading...</div>;
+  }
+
+  if (!session) {
     redirect('/sign-in');
   }
 

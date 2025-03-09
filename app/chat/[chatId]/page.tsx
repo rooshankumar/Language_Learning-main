@@ -1,116 +1,115 @@
 
-"use client";
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { usePathname } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
-import ChatInterface from '@/components/chat/chat-interface';
-import useChat from '@/hooks/use-chat';
+import { useSession } from 'next-auth/react';
+import { useChat } from '@/hooks/use-chat';
+import { ChatInterface } from '@/components/chat/chat-interface';
 import { Loader2 } from 'lucide-react';
 
-export default function Page() {
-  const { chatId } = useParams();
+interface ChatPartner {
+  _id: string;
+  name: string;
+  image?: string;
+  online?: boolean;
+  lastSeen?: Date;
+}
+
+export default function ChatPage() {
+  const pathname = usePathname();
+  const chatId = pathname.split('/').pop();
   const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [chatData, setChatData] = useState<any>(null);
-  const [chatPartner, setChatPartner] = useState<any>(null);
-
-  const {
-    messages,
+  const [chatPartner, setChatPartner] = useState<ChatPartner | null>(null);
+  const { 
+    messages, 
     isConnected,
     isTyping,
-    sendMessage,
-    loadChatHistory,
+    sendMessage, 
+    loadChatHistory, 
     joinChat,
     setTyping
   } = useChat();
 
   // Fetch chat data
   const fetchChatData = useCallback(async () => {
+    if (!chatId || !session?.user) return;
+    
     try {
-      if (!chatId || !session?.user?.id) return;
-      
-      setLoading(true);
       const response = await fetch(`/api/chat/${chatId}`);
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch chat: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch chat');
       }
       
-      const data = await response.json();
-      setChatData(data);
+      const chatData = await response.json();
       
-      // Set chat partner (the other participant)
-      if (data && data.participants) {
-        const partnerId = data.participants.find(
-          (id: string) => id !== session.user.id
-        );
-        
-        if (partnerId) {
-          await fetchChatPartner(partnerId);
-        }
+      // Find partner in the chat
+      if (chatData.partnerDetails && chatData.partnerDetails.length > 0) {
+        setChatPartner(chatData.partnerDetails[0]);
       }
       
-      setLoading(false);
-    } catch (err: any) {
-      console.error('Error fetching chat data:', err);
-      setError(err.message || 'Failed to load chat');
-      setLoading(false);
+      return chatData;
+    } catch (error: any) {
+      console.error('Error fetching chat data:', error);
+      setError(error.message || 'Failed to fetch chat data');
+      return null;
     }
-  }, [chatId, session?.user?.id]);
+  }, [chatId, session?.user]);
 
-  // Fetch chat partner info
-  const fetchChatPartner = async (partnerId: string) => {
-    try {
-      const response = await fetch(`/api/users/${partnerId}`);
-      
-      if (response.ok) {
-        const userData = await response.json();
-        setChatPartner(userData);
-      }
-    } catch (err) {
-      console.error('Error fetching chat partner:', err);
+  // Typing indicator handler
+  const handleTyping = useCallback((isTyping: boolean) => {
+    if (chatId) {
+      setTyping(chatId, isTyping);
     }
-  };
+  }, [chatId, setTyping]);
 
-  // Initialize socket connection and load chat history
+  // Initialize chat
   useEffect(() => {
-    if (!session?.user?.id || !chatId) return;
+    let mounted = true;
     
     const initializeChat = async () => {
+      if (!chatId || !session?.user) return;
+      
       try {
-        // Load chat data first
-        await fetchChatData();
+        setLoading(true);
         
-        // Then load message history
-        await loadChatHistory(chatId as string);
+        // Join the chat room
+        joinChat(chatId);
         
-        // Join the chat room to receive new messages
-        const unsubscribe = joinChat(chatId as string);
+        // Load chat history
+        await loadChatHistory(chatId);
         
-        return () => {
-          if (unsubscribe) unsubscribe();
-        };
-      } catch (err: any) {
-        console.error('Error initializing chat:', err);
-        setError(err.message || 'Failed to initialize chat');
+        // Fetch chat data
+        const chatData = await fetchChatData();
+        
+        if (!mounted) return;
+        
+        if (!chatData) {
+          setError('Failed to load chat data');
+        }
+      } catch (error: any) {
+        console.error('Error initializing chat:', error);
+        if (mounted) {
+          setError(error.message || 'Failed to initialize chat');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
     
     initializeChat();
-  }, [chatId, session?.user?.id, loadChatHistory, joinChat, fetchChatData]);
-
-  // Handle typing indicator
-  const handleTyping = useCallback(
-    (isTyping: boolean) => {
-      if (chatId) {
-        setTyping(chatId as string, isTyping);
-      }
-    },
-    [chatId, setTyping]
-  );
+    
+    return () => {
+      mounted = false;
+    };
+  }, [chatId, session?.user, joinChat, loadChatHistory, fetchChatData]);
 
   // Send message handler
   const handleSendMessage = useCallback(
@@ -121,7 +120,7 @@ export default function Page() {
       }
       
       try {
-        sendMessage(content, chatId as string);
+        sendMessage(content, chatId);
         // Reset typing indicator
         handleTyping(false);
       } catch (err: any) {
@@ -162,7 +161,8 @@ export default function Page() {
           messages={messages}
           onSendMessage={handleSendMessage}
           chatPartner={chatPartner}
-          isTyping={isTyping}
+          isTyping={isTyping[chatId || '']}
+          onTyping={handleTyping}
         />
       </div>
     </AppShell>

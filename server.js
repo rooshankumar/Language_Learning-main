@@ -1,187 +1,201 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+
+const { createServer } = require('http');
+const { parse } = require('url');
 const next = require('next');
-const cors = require('cors');
-const path = require('path');
-const mongoose = require('mongoose'); // Added mongoose import
-require('dotenv').config();
+const { Server } = require('socket.io');
+const { MongoClient, ObjectId } = require('mongodb');
 
 const dev = process.env.NODE_ENV !== 'production';
-const app = next({ dev });
+const hostname = '0.0.0.0';
+const port = 3000;
+const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-// MongoDB Connection
+// MongoDB setup
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+  throw new Error('Please add MongoDB URI to .env file');
 }
 
-mongoose.connect(MONGODB_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+async function startServer() {
+  try {
+    await app.prepare();
+    const server = createServer(async (req, res) => {
+      try {
+        const parsedUrl = parse(req.url, true);
+        await handle(req, res, parsedUrl);
+      } catch (err) {
+        console.error('Error occurred handling request:', err);
+        res.statusCode = 500;
+        res.end('Internal Server Error');
+      }
+    });
 
-// Port configuration
-const PORT = process.env.PORT || 3000;
+    // Initialize Socket.io
+    const io = new Server(server, {
+      path: '/api/socket',
+      addTrailingSlash: false,
+      cors: {
+        origin: '*',
+        methods: ['GET', 'POST']
+      }
+    });
 
-app.prepare().then(() => {
-  const server = express();
-  const httpServer = http.createServer(server);
+    // MongoDB Client
+    const client = new MongoClient(MONGODB_URI, {});
+    await client.connect();
+    const db = client.db();
+    console.log('Connected to MongoDB');
 
-  // CORS configuration
-  server.use(cors({
-    origin: process.env.NEXTAUTH_URL || '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true
-  }));
+    // Socket.io events
+    io.on('connection', async (socket) => {
+      const { userId, username } = socket.handshake.auth;
+      if (!userId) {
+        return socket.disconnect();
+      }
 
-  // Parse JSON
-  server.use(express.json());
-  server.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+      console.log(`User connected: ${username} (${userId})`);
 
+      try {
+        // Update user's status in database
+        await db.collection('users').updateOne(
+          { _id: new ObjectId(userId) },
+          { $set: { online: true, lastSeen: new Date() } }
+        );
+      } catch (error) {
+        console.error('Error updating user status:', error);
+      }
 
-  // Socket.IO setup
-  const io = new Server(httpServer, {
-    cors: {
-      origin: process.env.NEXTAUTH_URL || '*',
-      methods: ['GET', 'POST'],
-      credentials: true
-    }
-  });
+      // Join user's rooms
+      socket.join(userId); // Personal room
 
-  // Track connected users
-  const connectedUsers = new Map();
+      // Send online users to all clients
+      const onlineUsers = await db.collection('users')
+        .find({ online: true })
+        .project({ _id: 1 })
+        .toArray();
+      
+      io.emit('users_online', onlineUsers.map(user => user._id.toString()));
 
-  // Socket.IO connection handling
-  io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
-
-    // User login - track online status
-    socket.on("user_login", ({ userId, username }) => {
-      connectedUsers.set(userId, {
-        socketId: socket.id,
-        username,
-        lastSeen: new Date()
+      // Handle joining a chat
+      socket.on('join_chat', ({ chatId }) => {
+        if (chatId) {
+          socket.join(chatId);
+          console.log(`User ${userId} joined chat ${chatId}`);
+        }
       });
 
-      // Update user's online status in database
-      mongoose.model('User').findByIdAndUpdate(
-        userId,
-        { online: true, lastSeen: new Date() },
-        { new: true }
-      ).catch(err => console.error('Error updating user status:', err));
+      // Handle sending messages
+      socket.on('send_message', async (data) => {
+        try {
+          const { chatId, content, senderId } = data;
+          
+          if (!chatId || !content || !senderId) {
+            return;
+          }
 
-      // Broadcast updated online users list
-      io.emit("online_users", Array.from(connectedUsers.keys()));
-    });
+          // Get sender info
+          const sender = await db.collection('users').findOne(
+            { _id: new ObjectId(senderId) },
+            { projection: { name: 1, image: 1, profilePic: 1 } }
+          );
 
+          if (!sender) {
+            return;
+          }
 
-    // Join a chat room
-    socket.on('join-chat', (chatId) => {
-      socket.join(chatId);
-      console.log(`User ${socket.id} joined chat: ${chatId}`);
-    });
-
-    // Leave a chat room
-    socket.on('leave-chat', (chatId) => {
-      socket.leave(chatId);
-      console.log(`User ${socket.id} left chat: ${chatId}`);
-    });
-
-    // Send a message
-    socket.on('send-message', async (messageData) => {
-      try {
-        const { chatId, message, senderId } = messageData;
-
-        // Save message to MongoDB
-        const Chat = mongoose.model('Chat');
-        const updatedChat = await Chat.findByIdAndUpdate(
-          chatId,
-          {
-            $push: {
-              messages: {
-                sender: senderId,
-                text: message,
-                createdAt: new Date()
-              }
+          // Create new message
+          const newMessage = {
+            chatId,
+            content,
+            sender: {
+              _id: senderId,
+              name: sender.name,
+              image: sender.image || sender.profilePic || null
             },
-            lastMessage: {
-              text: message,
-              sender: senderId,
-              createdAt: new Date()
-            },
-            updatedAt: new Date()
-          },
-          { new: true }
-        ).populate({
-          path: 'messages.sender',
-          select: 'name image profilePic'
-        });
+            createdAt: new Date(),
+            _id: new ObjectId()
+          };
 
-        // Broadcast message to all users in the chat room
-        io.to(chatId).emit("receive_message", {
-          chatId,
-          message: updatedChat.messages[updatedChat.messages.length - 1]
-        });
+          // Save to database
+          await db.collection('messages').insertOne(newMessage);
 
-        // Update last message for all clients
-        io.emit("update_chat_preview", {
-          chatId,
-          lastMessage: updatedChat.lastMessage
-        });
-      } catch (error) {
-        console.error("Error saving message:", error);
-        socket.emit("error", { message: "Failed to send message" });
-      }
-    });
+          // Update last message in chat
+          await db.collection('chats').updateOne(
+            { _id: new ObjectId(chatId) },
+            { 
+              $set: { 
+                lastMessage: newMessage,
+                updatedAt: new Date()
+              } 
+            }
+          );
 
-    // User typing indicator
-    socket.on('typing', ({ chatId, username, isTyping }) => {
-      socket.to(chatId).emit('user-typing', { username, isTyping });
-    });
+          // Send to all clients in the room
+          io.to(chatId).emit('receive_message', {
+            chatId,
+            message: newMessage
+          });
 
-    // Handle disconnection
-    socket.on('disconnect', () => {
-      // Find the disconnected user
-      let disconnectedUserId = null;
+          // Update chat preview for all participants
+          const chat = await db.collection('chats').findOne(
+            { _id: new ObjectId(chatId) },
+            { projection: { participants: 1 } }
+          );
 
-      for (const [userId, userData] of connectedUsers.entries()) {
-        if (userData.socketId === socket.id) {
-          disconnectedUserId = userId;
-          break;
+          if (chat?.participants) {
+            chat.participants.forEach(participantId => {
+              io.to(participantId.toString()).emit('update_chat_preview', {
+                chatId,
+                lastMessage: newMessage
+              });
+            });
+          }
+        } catch (error) {
+          console.error('Error sending message:', error);
         }
-      }
+      });
 
-      if (disconnectedUserId) {
-        // Remove from connected users map
-        connectedUsers.delete(disconnectedUserId);
+      // Handle typing indicators
+      socket.on('typing', async (data) => {
+        const { chatId, username, isTyping } = data;
+        socket.to(chatId).emit('user_typing', {
+          chatId,
+          username,
+          isTyping
+        });
+      });
 
-        // Update user's status in database
-        mongoose.model('User').findByIdAndUpdate(
-          disconnectedUserId,
-          { online: false, lastSeen: new Date() },
-          { new: true }
-        ).catch(err => console.error('Error updating offline status:', err));
-
-        // Broadcast updated online users list
-        io.emit("online_users", Array.from(connectedUsers.keys()));
-      }
-
-      console.log('User disconnected:', socket.id);
+      // Handle disconnection
+      socket.on('disconnect', async () => {
+        console.log(`User disconnected: ${userId}`);
+        try {
+          await db.collection('users').updateOne(
+            { _id: new ObjectId(userId) },
+            { $set: { online: false, lastSeen: new Date() } }
+          );
+          
+          // Update online users list
+          const onlineUsers = await db.collection('users')
+            .find({ online: true })
+            .project({ _id: 1 })
+            .toArray();
+          
+          io.emit('users_online', onlineUsers.map(user => user._id.toString()));
+        } catch (error) {
+          console.error('Error updating user status on disconnect:', error);
+        }
+      });
     });
-  });
 
-  // Handle Next.js requests
-  server.all('*', (req, res) => {
-    return handle(req, res);
-  });
+    server.listen(port, hostname, () => {
+      console.log(`Ready on http://${hostname}:${port}`);
+    });
 
-  // Start the server
-  httpServer.listen(PORT, '0.0.0.0', (err) => {
-    if (err) throw err;
-    console.log(`> Ready on http://0.0.0.0:${PORT}`);
-  });
-}).catch((ex) => {
-  console.error(ex.stack);
-  process.exit(1);
-});
+  } catch (err) {
+    console.error('Error starting server:', err);
+    process.exit(1);
+  }
+}
+
+startServer();

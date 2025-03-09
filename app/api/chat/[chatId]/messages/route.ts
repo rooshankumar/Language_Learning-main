@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import clientPromise from "@/lib/mongodb";
+import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { chatId: string } }
 ) {
   try {
@@ -13,16 +13,12 @@ export async function GET(
 
     if (!session?.user) {
       return new NextResponse(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Not authenticated" }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     const chatId = params.chatId;
-    
-    if (!chatId) {
-      return NextResponse.json({ error: "Chat ID is required" }, { status: 400 });
-    }
 
     if (!chatId) {
       return new NextResponse(
@@ -34,52 +30,44 @@ export async function GET(
     const client = await clientPromise;
     const db = client.db();
 
-    // Find chat by ID and verify user is a participant
-    const chat = await db.collection("chats").findOne({
-      _id: new ObjectId(chatId),
+    // Verify user is part of this chat
+    let objectId;
+    try {
+      objectId = new ObjectId(chatId);
+    } catch (error) {
+      return new NextResponse(
+        JSON.stringify({ error: "Invalid chat ID format" }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const chat = await db.collection('chats').findOne({
+      _id: objectId,
       participants: session.user.id
     });
 
     if (!chat) {
       return new NextResponse(
-        JSON.stringify({ error: "Chat not found or user not authorized" }),
+        JSON.stringify({ error: "Chat not found or access denied" }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     // Get messages for this chat
-    const messages = await db.collection("messages")
-      .find({ chatId: new ObjectId(chatId) })
+    const messages = await db.collection('messages')
+      .find({ chatId: chatId })
       .sort({ createdAt: 1 })
       .toArray();
 
-    // Populate sender information for each message
-    const messagesWithSenders = await Promise.all(
-      messages.map(async (message) => {
-        const sender = await db.collection("users").findOne(
-          { _id: new ObjectId(message.senderId) },
-          { projection: { name: 1, image: 1, profilePic: 1 } }
-        );
-
-        return {
-          ...message,
-          sender: {
-            _id: message.senderId,
-            ...sender
-          }
-        };
-      })
-    );
-
     return new NextResponse(
-      JSON.stringify({ messages: messagesWithSenders }),
+      JSON.stringify(messages),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
-    console.error("Error fetching messages:", error);
+  } catch (error: any) {
+    console.error("Error fetching chat messages:", error);
     return new NextResponse(
-      JSON.stringify({ error: "Internal server error" }),
+      JSON.stringify({ error: error.message || "Failed to fetch messages" }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

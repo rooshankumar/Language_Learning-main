@@ -32,32 +32,47 @@ class ChatService {
   private typingCallbacks: Map<string, (data: {username: string, isTyping: boolean}) => void> = new Map();
   private onlineUsersCallback: ((users: string[]) => void) | null = null;
   private chatUpdateCallbacks: ((data: any) => void)[] = [];
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 5;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
 
   // Initialize socket connection
   initialize(userId: string, username: string) {
-    if (this.socket) return; // Already initialized
-
     this.userId = userId;
     this.username = username;
 
+    this.connectSocket();
+    return this;
+  }
+
+  private connectSocket() {
+    if (this.socket?.connected) return; // Already connected
+    
     // Connect to Socket.IO server
     this.socket = io({
       path: '/api/socket',
-      reconnectionAttempts: 5,
+      reconnectionAttempts: this.maxReconnectAttempts,
       timeout: 10000,
       auth: {
-        userId,
-        username
+        userId: this.userId,
+        username: this.username
       }
     });
 
     // Setup event listeners
     this.socket.on('connect', () => {
       console.log('Socket connected');
+      this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
     });
 
     this.socket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
+      this.handleReconnect();
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.log(`Socket disconnected: ${reason}`);
+      this.handleReconnect();
     });
 
     this.socket.on('users_online', (users) => {
@@ -90,6 +105,29 @@ class ChatService {
     this.socket.on('error', (error) => {
       console.error('Socket error:', error);
     });
+  }
+
+  private handleReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.log('Maximum reconnection attempts reached');
+      return;
+    }
+
+    this.reconnectAttempts++;
+    
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+    }
+
+    // Exponential backoff
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+    
+    console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    
+    this.reconnectTimeout = setTimeout(() => {
+      console.log(`Reconnecting... (attempt ${this.reconnectAttempts})`);
+      this.connectSocket();
+    }, delay);
   }
 
   // Join a chat room
@@ -163,11 +201,21 @@ class ChatService {
     });
   }
 
+  // Check connection status
+  isConnected(): boolean {
+    return !!this.socket?.connected;
+  }
+
   // Disconnect socket
   disconnect() {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
+    }
+    
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
     }
   }
 }
@@ -177,7 +225,7 @@ const chatService = new ChatService();
 export default chatService;
 
 // Helper function to create a chat with a user
-export async function createChat(title: string, recipientId: string) {
+export async function createChat(recipientId: string) {
   try {
     if (!recipientId) {
       throw new Error('Recipient ID is required');

@@ -1,85 +1,111 @@
 
-import { NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/mongodb";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import User from "@/models/User";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import clientPromise from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
-export async function GET(request) {
+export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return new NextResponse(JSON.stringify({ error: 'Not authenticated' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    const client = await connectToDatabase();
+    const client = await clientPromise;
     const db = client.db();
-    const usersCollection = db.collection("users");
-    
-    const user = await usersCollection.findOne(
-      { email: session.user.email },
+
+    const user = await db.collection('users').findOne(
+      { _id: new ObjectId(session.user.id) },
       { projection: { password: 0 } }
     );
 
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return new NextResponse(JSON.stringify({ error: 'User not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    return NextResponse.json({ user });
-  } catch (error) {
-    console.error("Error getting user profile:", error);
-    return NextResponse.json(
-      { error: "Failed to get user profile" },
-      { status: 500 }
-    );
+    return new NextResponse(JSON.stringify(user), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error: any) {
+    console.error('Error fetching user profile:', error);
+    return new NextResponse(JSON.stringify({ error: error.message || 'Failed to fetch user profile' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
-export async function PUT(request) {
+export async function PATCH(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return new NextResponse(JSON.stringify({ error: 'Not authenticated' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    const data = await request.json();
-    
-    const client = await connectToDatabase();
+    const client = await clientPromise;
     const db = client.db();
-    const usersCollection = db.collection("users");
-    
-    const result = await usersCollection.updateOne(
-      { email: session.user.email },
-      { $set: { ...data, updatedAt: new Date() } }
+    const body = await req.json();
+
+    // Fields that are allowed to be updated
+    const allowedFields = [
+      'name',
+      'bio',
+      'languages',
+      'profilePic',
+      'location',
+      'interests',
+      'learningGoals'
+    ];
+
+    // Filter out fields that are not allowed
+    const updates = Object.keys(body)
+      .filter(key => allowedFields.includes(key))
+      .reduce((obj: any, key) => {
+        obj[key] = body[key];
+        return obj;
+      }, {});
+
+    if (Object.keys(updates).length === 0) {
+      return new NextResponse(JSON.stringify({ error: 'No valid fields to update' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const result = await db.collection('users').updateOne(
+      { _id: new ObjectId(session.user.id) },
+      { $set: updates }
     );
 
     if (result.matchedCount === 0) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return new NextResponse(JSON.stringify({ error: 'User not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    return NextResponse.json({ 
-      success: true,
-      message: "Profile updated successfully" 
+    return new NextResponse(JSON.stringify({ success: true, updated: updates }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
-  } catch (error) {
-    console.error("Error updating user profile:", error);
-    return NextResponse.json(
-      { error: "Failed to update user profile" },
-      { status: 500 }
-    );
+  } catch (error: any) {
+    console.error('Error updating user profile:', error);
+    return new NextResponse(JSON.stringify({ error: error.message || 'Failed to update user profile' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
