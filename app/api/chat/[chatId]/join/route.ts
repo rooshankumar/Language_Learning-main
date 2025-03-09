@@ -7,7 +7,7 @@ import { ObjectId } from "mongodb";
 
 export async function POST(
   request: NextRequest,
-  context: { params: { chatId: string } }
+  { params }: { params: { chatId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -20,7 +20,7 @@ export async function POST(
     }
     
     const { db } = await connectToDatabase();
-    const chatId = context.params.chatId;
+    const chatId = params.chatId;
     
     // Check if chat exists
     const chat = await db.collection("chats").findOne({
@@ -40,7 +40,7 @@ export async function POST(
     await db.collection("chats").updateOne(
       { _id: new ObjectId(chatId) },
       { 
-        $addToSet: { participants: new ObjectId(userId) },
+        $addToSet: { participants: userId },
         $set: { updatedAt: new Date() }
       }
     );
