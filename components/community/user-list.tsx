@@ -56,8 +56,31 @@ export function UserList({ searchQuery }: { searchQuery: string }) {
       )
     : users;
 
-  const handleStartChat = (userId: string) => {
-    router.push(`/chat/${userId}`);
+  const handleStartChat = async (userId: string) => {
+    try {
+      // Show loading state
+      setIsLoading(true);
+      
+      const response = await fetch("/api/chat/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ otherUserId: userId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create chat");
+      }
+
+      const data = await response.json();
+      router.push(`/chat/${data.chatId}`);
+    } catch (error) {
+      console.error("Error starting chat:", error);
+      alert("Failed to start chat. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isLoading) {

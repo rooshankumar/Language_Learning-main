@@ -88,11 +88,16 @@ export default function CommunityPage() {
     const fetchUsers = async () => {
       try {
         const response = await fetch("/api/community/users", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
           cache: "no-store"
         });
 
         if (!response.ok) {
-          throw new Error("Failed to fetch users");
+          console.error("Error response:", await response.text());
+          throw new Error(`Failed to fetch users: ${response.status}`);
         }
 
         const data = await response.json();
@@ -100,6 +105,8 @@ export default function CommunityPage() {
         setFilteredUsers(data);
       } catch (error) {
         console.error("Error fetching users:", error);
+        // Don't set users to empty array when there's an error
+        // This prevents UI from showing "no users found"
       } finally {
         setIsLoading(false);
       }
@@ -130,13 +137,29 @@ export default function CommunityPage() {
   };
 
   const handleStartChat = async (userId: string) => {
-    if (!createOrGetChat) return;
-
     try {
-      const chatId = await createOrGetChat(userId);
-      router.push(`/chat/${chatId}`);
+      // Show loading state
+      setIsLoading(true);
+      
+      const response = await fetch("/api/chat/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ otherUserId: userId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create chat");
+      }
+
+      const data = await response.json();
+      router.push(`/chat/${data.chatId}`);
     } catch (error) {
       console.error("Error starting chat:", error);
+      alert("Failed to start chat. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
