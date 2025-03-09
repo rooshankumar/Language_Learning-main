@@ -50,6 +50,26 @@ export async function createChatWithUser(userId: string) {
   }
 }
 
+export async function joinChat(chatId: string, userId: string) {
+  try {
+    const response = await fetch(`/api/chat/${chatId}/join`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to join chat");
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error joining chat:", error);
+    throw error;
+  }
+}
+
 export const useChat = () => {
   const { data: session } = useSession();
   const router = useRouter();
