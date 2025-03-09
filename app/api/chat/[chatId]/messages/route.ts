@@ -19,6 +19,10 @@ export async function GET(
     }
 
     const chatId = params.chatId;
+    
+    if (!chatId) {
+      return NextResponse.json({ error: "Chat ID is required" }, { status: 400 });
+    }
 
     if (!chatId) {
       return new NextResponse(
