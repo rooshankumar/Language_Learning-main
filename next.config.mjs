@@ -8,7 +8,6 @@ const nextConfig = {
     domains: ['res.cloudinary.com'],
   },
   reactStrictMode: true,
-  swcMinify: true,
 };
 
 export default nextConfig;
