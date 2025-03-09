@@ -40,6 +40,7 @@ export function ProfileDashboard() {
   // Initialize form data when user data is available
   useEffect(() => {
     if (user) {
+      console.log("Initializing form with user data:", user);
       setFormData({
         displayName: user.displayName || user.name || '',
         bio: user.bio || '',
@@ -48,9 +49,28 @@ export function ProfileDashboard() {
         learningLanguage: user.learningLanguage || 'Spanish',
         interests: user.interests || [],
         country: user.country || '',
-      })
+      });
     }
   }, [user])
+  
+  // Fetch the latest user data from the server on component mount
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const response = await fetch('/api/user/profile');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user && updateUser) {
+            updateUser(data);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+      }
+    };
+    
+    fetchUserProfile();
+  }, [updateUser]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -120,10 +140,21 @@ export function ProfileDashboard() {
       
       // Update user in context with the data returned from the server
       if (updateUser && user) {
-        updateUser({
-          ...user,
-          ...(data.user || data) // Handle both response formats for backward compatibility
-        })
+        // Just pass the data directly - the context will handle the structure
+        updateUser(data);
+        
+        // Also update the form with the latest data
+        const updatedUser = data.user || data;
+        setFormData(prev => ({
+          ...prev,
+          displayName: updatedUser.displayName || updatedUser.name || prev.displayName,
+          bio: updatedUser.bio || prev.bio,
+          age: updatedUser.age ? updatedUser.age.toString() : prev.age,
+          nativeLanguage: updatedUser.nativeLanguage || prev.nativeLanguage,
+          learningLanguage: updatedUser.learningLanguage || prev.learningLanguage,
+          interests: updatedUser.interests || prev.interests,
+          country: updatedUser.country || prev.country,
+        }));
       }
       
       toast({

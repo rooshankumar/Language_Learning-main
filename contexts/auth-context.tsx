@@ -90,14 +90,28 @@ export function AuthProvider({ children }) {
   };
 
   const updateUser = (userData: any) => {
-    setUser((prevUser) => ({ ...prevUser, ...userData }));
-
-    if (typeof window !== 'undefined') {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        localStorage.setItem('user', JSON.stringify({ ...parsedUser, ...userData }));
+    console.log("Updating user in context with:", userData);
+    
+    // Ensure we're working with the right structure
+    const newUserData = userData.user ? userData.user : userData;
+    
+    // Update the state
+    setUser((prevUser) => {
+      const updatedUser = { ...prevUser, ...newUserData };
+      console.log("Updated user state:", updatedUser);
+      
+      // Also sync with localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user', JSON.stringify(updatedUser));
       }
+      
+      return updatedUser;
+    });
+    
+    // Force session update
+    if (typeof window !== 'undefined') {
+      // Request the user session to refresh
+      fetch('/api/auth/session', { method: 'GET' });
     }
   };
 
