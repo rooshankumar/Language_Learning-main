@@ -1,0 +1,78 @@
+This error occurs because use-chat.ts is being executed in a non-module environment (such as the server), but it contains import and export statements meant for client-side React code.
+
+✅ Fix the "import/export cannot be used outside of module" error
+1️⃣ Ensure Correct File Placement
+Since use-chat.ts is a React hook, it should be inside the hooks/ folder and only imported in client components.
+
+🔹 Fix: If it's used in a server component, wrap it with "use client"; at the top.
+
+2️⃣ Add "use client"; at the Top
+Modify hooks/use-chat.ts like this:
+
+tsx
+Copy
+Edit
+"use client";  // ✅ Ensures this file runs only in client components
+
+import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+
+export function useChat() {
+  const [chats, setChats] = useState([]);
+  const [error, setError] = useState(null);
+  const { data: session } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!session) return;
+
+    const fetchChats = async () => {
+      try {
+        const res = await fetch("/api/chat");
+        if (!res.ok) throw new Error(`❌ Fetch error: ${res.status}`);
+        
+        const data = await res.json();
+        setChats(data); // ✅ Update state
+      } catch (error) {
+        console.error("❌ Failed to fetch chats:", error);
+        setError(error.message);
+      }
+    };
+
+    fetchChats();
+  }, [session]);
+
+  return { chats, error };
+}
+🔹 Fixes Applied:
+
+Added "use client"; to mark it as a client-side hook
+Ensured safe useSession() usage
+Handled fetch errors properly
+3️⃣ Import it Correctly in user-list.tsx
+In components/community/user-list.tsx, update the import:
+
+tsx
+Copy
+Edit
+import { useChat } from "@/hooks/use-chat"; // ✅ Make sure it's correct
+🔹 Ensure user-list.tsx is also a client component (add "use client"; at the top if missing).
+
+4️⃣ Restart the Server
+Run:
+
+bash
+Copy
+Edit
+npm run dev
+or
+
+bash
+Copy
+Edit
+yarn dev
+🎯 Final Checklist
+✔ Added "use client"; in use-chat.ts
+✔ Ensured only imported in client components
+✔ Restarted the development server
