@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -48,94 +47,50 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const { userId, partnerId } = await request.json();
 
-    if (!session?.user) {
+    if (!userId || !partnerId) {
       return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
-    }
-
-    const body = await req.json();
-    const { targetUserId } = body;
-    
-    if (!targetUserId) {
-      return NextResponse.json(
-        { error: "Target user ID is required" },
+        { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
     const { db } = await connectToDatabase();
-    
-    let userObjectId, targetUserObjectId;
-    try {
-      userObjectId = new ObjectId(session.user.id);
-      targetUserObjectId = new ObjectId(targetUserId);
-    } catch (error) {
-      console.error("Invalid ObjectId format:", error);
-      return NextResponse.json(
-        { error: "Invalid user ID format" },
-        { status: 400 }
-      );
-    }
 
-    // Check if chat already exists
+    // Check if chat already exists between these users
     const existingChat = await db.collection("chats").findOne({
-      participants: { $all: [userObjectId, targetUserObjectId] }
+      participants: {
+        $all: [userId, partnerId]
+      }
     });
 
     if (existingChat) {
-      return NextResponse.json(existingChat);
+      return NextResponse.json(
+        { chatId: existingChat._id },
+        { status: 200 }
+      );
     }
 
-    // Create new chat
-    const newChat = {
-      participants: [userObjectId, targetUserObjectId],
+    // Create a new chat
+    const result = await db.collection("chats").insertOne({
+      participants: [userId, partnerId],
+      messages: [],
       createdAt: new Date(),
       updatedAt: new Date()
-    };
-
-    const result = await db.collection("chats").insertOne(newChat);
-    
-    // Get the complete chat object with the ID
-    const chat = await db.collection("chats").findOne({
-      _id: result.insertedId
     });
 
-    return NextResponse.json(chat);
+    return NextResponse.json(
+      { chatId: result.insertedId },
+      { status: 201 }
+    );
   } catch (error) {
-    console.error("Error creating chat:", error);
+    console.error("Failed to create chat:", error);
     return NextResponse.json(
       { error: "Failed to create chat" },
       { status: 500 }
     );
-  }
-}
-import { NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/mongodb";
-
-export async function GET() {
-  try {
-    const { db } = await connectToDatabase();
-    const chats = await db.collection("chats").find().toArray();
-
-    if (!chats || chats.length === 0) {
-      console.error("❌ No chats found in the database");
-      return new NextResponse(JSON.stringify({ error: "No chats available" }), {
-        status: 404,
-      });
-    }
-
-    console.log("✅ Chats fetched successfully");
-    return new NextResponse(JSON.stringify(chats), { status: 200 });
-  } catch (error) {
-    console.error("🚨 Error fetching chats:", error);
-    return new NextResponse(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-    });
   }
 }
