@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
-import { FiSend, FiPaperclip } from 'react-icons/fi';
+import { Send, Paperclip } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ChatInterfaceProps {
@@ -179,7 +179,7 @@ export function ChatInterface({ chatId, recipientName, recipientImage }: ChatInt
             type="button"
             disabled={isLoading}
           >
-            <FiPaperclip className="h-5 w-5" />
+            <Paperclip className="h-5 w-5" />
             <span className="sr-only">Attach file</span>
           </Button>
           
@@ -198,7 +198,7 @@ export function ChatInterface({ chatId, recipientName, recipientImage }: ChatInt
             size="icon"
             className="rounded-full"
           >
-            <FiSend className="h-5 w-5" />
+            <Send className="h-5 w-5" />
             <span className="sr-only">Send</span>
           </Button>
         </div>
