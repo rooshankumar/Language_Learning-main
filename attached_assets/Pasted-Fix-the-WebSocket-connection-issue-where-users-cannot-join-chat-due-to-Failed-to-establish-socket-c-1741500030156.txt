@@ -1,0 +1,78 @@
+Fix the WebSocket connection issue where users cannot join chat due to 'Failed to establish socket connection'. Ensure socket.io properly connects before calling joinChat. Implement auto-reconnect logic and improve error handling. Additionally, update the chat UI to align sent messages on the right and received messages on the left."
+
+🛠 Fixing Steps
+1️⃣ Fix Socket Connection Issue
+🔹 Ensure socket.io is initialized only once and handles reconnections:
+
+ts
+Copy
+Edit
+import { io } from "socket.io-client";
+
+const socket = io(process.env.NEXT_PUBLIC_SOCKET_SERVER!, {
+  transports: ["websocket"],
+  reconnectionAttempts: 5,
+  timeout: 10000,
+  autoConnect: false, // Prevent multiple connections
+});
+
+export function connectSocket() {
+  if (!socket.connected) {
+    socket.connect();
+  }
+
+  socket.on("connect", () => console.log("✅ Socket connected:", socket.id));
+  socket.on("disconnect", () => console.warn("⚠️ Socket disconnected"));
+  socket.on("connect_error", (error) => {
+    console.error("❌ Socket connection failed:", error.message);
+    setTimeout(() => socket.connect(), 5000); // Retry connection
+  });
+}
+
+export default socket;
+2️⃣ Ensure Socket Connection Before Joining Chat
+🔹 Modify joinChat to wait until the socket is connected:
+
+ts
+Copy
+Edit
+export async function joinChat(chatId: string) {
+  if (!socket.connected) {
+    console.warn("⚠️ Socket not connected, attempting to reconnect...");
+    await new Promise((resolve) => socket.once("connect", resolve));
+  }
+
+  socket.emit("join-chat", chatId);
+  console.log("✅ Joined chat:", chatId);
+}
+3️⃣ Fix Chat UI Message Alignment
+🔹 Update the message rendering in chat.tsx:
+
+tsx
+Copy
+Edit
+<div className={`message ${message.isSender ? "sent" : "received"}`}>
+  {message.text}
+</div>
+🔹 Add CSS for proper alignment:
+
+css
+Copy
+Edit
+.message {
+  padding: 10px;
+  border-radius: 8px;
+  max-width: 70%;
+}
+
+.sent {
+  background-color: #007bff;
+  color: white;
+  align-self: flex-end;
+}
+
+.received {
+  background-color: #f1f1f1;
+  color: black;
+  align-self: flex-start;
+}
