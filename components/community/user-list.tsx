@@ -54,10 +54,13 @@ export function UserList() {
   }, []);
 
   const handleChatClick = async (userId: string) => {
-    if (!userId) {
+    // Convert ObjectId to string if it's an ObjectId type
+    const userIdString = typeof userId === 'object' && userId.toString ? userId.toString() : userId;
+    
+    if (!userIdString || userIdString === 'undefined') {
       toast({
         title: "Error",
-        description: "User ID is missing",
+        description: "User ID is missing or invalid",
         variant: "destructive",
       });
       return;
@@ -65,7 +68,10 @@ export function UserList() {
 
     setLoading(true);
     try {
-      const chatId = await createChatWithUser(userId);
+      // Log the user ID to help diagnose any future issues
+      console.log('Starting chat with user ID:', userIdString);
+      
+      const chatId = await createChatWithUser(userIdString);
       if (chatId) {
         router.push(`/chat/${chatId}`);
       } else {
@@ -141,7 +147,11 @@ export function UserList() {
           </CardContent>
           <CardFooter>
             <Button 
-              onClick={() => handleChatClick(user._id.toString())} 
+              onClick={() => {
+                // Ensure we have a valid ID before attempting to start a chat
+                const userId = user._id || user.id || user.uid;
+                handleChatClick(userId ? userId.toString() : "");
+              }} 
               variant="secondary" 
               className="w-full"
             >
