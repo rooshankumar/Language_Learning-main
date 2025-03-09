@@ -29,6 +29,8 @@ export default function ChatPage() {
         const partnerData = await getChatPartner(chatId);
         if (partnerData) {
           setPartner(partnerData);
+        } else {
+          console.error("No partner data returned");
         }
       } catch (error) {
         console.error("Failed to join chat:", error);
@@ -40,10 +42,11 @@ export default function ChatPage() {
     const fetchChatMessages = async () => {
       try {
         const response = await fetch(`/api/chat/${chatId}/messages`);
-        if (response.ok) {
-          const data = await response.json();
-          setMessages(data);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch messages: ${response.status}`);
         }
+        const data = await response.json();
+        setMessages(data);
       } catch (error) {
         console.error("Error fetching messages:", error);
       }

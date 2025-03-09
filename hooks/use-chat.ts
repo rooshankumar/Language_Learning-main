@@ -37,12 +37,12 @@ export async function createChatWithUser(userId: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ recipientId: userId }),
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || "Failed to create chat");
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error("Chat creation failed:", error);
@@ -156,20 +156,26 @@ export const useChat = () => {
   }, [session]);
 
   const getChatPartner = useCallback(async (chatId: string): Promise<ChatPartner | null> => {
-    if (!session?.user) {
-      return null;
-    }
-
     try {
-      const response = await fetch(`/api/chat/${chatId}/partner`);
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
+      if (!session?.user?.id) {
+        console.error('Cannot fetch chat partner: User not authenticated');
+        return null;
       }
 
-      return await response.json();
-    } catch (err) {
-      console.error('Failed to fetch chat partner:', err);
+      console.log(`Fetching partner for chat: ${chatId}`);
+      const response = await fetch(`/api/chat/${chatId}/partner?userId=${session.user.id}`);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`Failed to fetch chat partner with status ${response.status}:`, errorData);
+        throw new Error(`Failed to fetch chat partner: ${errorData.error || response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('Chat partner fetched successfully:', data.name || data._id);
+      return data;
+    } catch (error) {
+      console.error('Error fetching chat partner:', error);
       return null;
     }
   }, [session]);
