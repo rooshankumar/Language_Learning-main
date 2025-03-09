@@ -1,0 +1,24 @@
+Error: ./components/profile/image-upload.tsx
+Error:   [31m×[0m The "use client" directive must be placed before other expressions. Move it to the top of the file to resolve this issue.
+     ╭─[[36;1;4m/home/runner/workspace/components/profile/image-upload.tsx[0m:125:1]
+ [2m122[0m │     </div>
+ [2m123[0m │   );
+ [2m124[0m │ }
+ [2m125[0m │ "use client"
+     · [35;1m────────────[0m
+ [2m126[0m │ 
+ [2m127[0m │ import { useState, useRef } from 'react'
+ [2m128[0m │ import { Button } from "@/components/ui/button"
+     ╰────
+    at BuildError (webpack-internal:///(pages-dir-browser)/./node_modules/next/dist/client/components/react-dev-overlay/ui/container/build-error.js:43:41)
+    at renderWithHooks (webpack-internal:///(pages-dir-browser)/./node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at updateFunctionComponent (webpack-internal:///(pages-dir-browser)/./node_modules/react-dom/cjs/react-dom.development.js:19619:24)
+    at beginWork (webpack-internal:///(pages-dir-browser)/./node_modules/react-dom/cjs/react-dom.development.js:21635:16)
+    at beginWork$1 (webpack-internal:///(pages-dir-browser)/./node_modules/react-dom/cjs/react-dom.development.js:27460:14)
+    at performUnitOfWork (webpack-internal:///(pages-dir-browser)/./node_modules/react-dom/cjs/react-dom.development.js:26591:12)
+    at workLoopSync (webpack-internal:///(pages-dir-browser)/./node_modules/react-dom/cjs/react-dom.development.js:26500:5)
+    at renderRootSync (webpack-internal:///(pages-dir-browser)/./node_modules/react-dom/cjs/react-dom.development.js:26468:7)
+    at performConcurrentWorkOnRoot (webpack-internal:///(pages-dir-browser)/./node_modules/react-dom/cjs/react-dom.development.js:25772:74)
+    at workLoop (webpack-internal:///(pages-dir-browser)/./node_modules/scheduler/cjs/scheduler.development.js:266:34)
+    at flushWork (webpack-internal:///(pages-dir-browser)/./node_modules/scheduler/cjs/scheduler.development.js:239:14)
+    at MessagePort.performWorkUntilDeadline (webpack-internal:///(pages-dir-browser)/./node_modules/scheduler/cjs/scheduler.development.js:533:21)
