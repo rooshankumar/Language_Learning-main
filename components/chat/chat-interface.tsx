@@ -1,294 +1,175 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Smile } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Message } from '@/lib/chat-service';
-import { useSession } from 'next-auth/react';
-import data from '@emoji-mart/data';
-import Picker from '@emoji-mart/react';
-import { useRouter } from 'next/navigation';
-import { toast } from '@/components/ui/use-toast';
+import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
+import { Send, PaperclipIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
-
-interface ChatPartner {
-  _id: string;
-  name: string;
-  image?: string;
-  online?: boolean;
-  lastSeen?: Date;
-}
-
-interface ChatInterfaceProps {
-  messages: Message[];
-  onSendMessage: (content: string) => void;
-  chatPartner: ChatPartner | null;
-  isTyping?: boolean;
-  onTyping?: (isTyping: boolean) => void;
-}
-
-export function ChatInterface({
-  messages,
-  onSendMessage,
-  chatPartner,
-  isTyping,
-  onTyping
-}: ChatInterfaceProps) {
+export default function ChatInterface({ chatId, initialMessages = [] }) {
   const { data: session } = useSession();
-  const [messageText, setMessageText] = useState('');
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [chatLoading, setChatLoading] = useState(false); // Added state for loading indicator
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const router = useRouter();
+  const [messages, setMessages] = useState(initialMessages);
+  const [newMessage, setNewMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [partner, setPartner] = useState(null);
+  const messagesEndRef = useRef(null);
 
-  // Scroll to bottom of messages
+  // Fetch chat partner
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
+    const fetchChatPartner = async () => {
+      try {
+        if (!chatId) return;
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  // Debounced typing indicator
-  const handleTyping = useCallback(() => {
-    if (onTyping) {
-      onTyping(true);
-
-      // Clear existing timeout
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-
-      // Set a new timeout to stop the typing indicator after 2 seconds of inactivity
-      typingTimeoutRef.current = setTimeout(() => {
-        onTyping(false);
-      }, 2000);
-    }
-  }, [onTyping]);
-
-  // Clean up timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
+        const response = await fetch(`/api/chat/${chatId}/partner`);
+        if (response.ok) {
+          const data = await response.json();
+          setPartner(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch chat partner:", error);
       }
     };
-  }, []);
 
-  const handleSendMessage = () => {
-    if (messageText.trim() === '') return;
+    fetchChatPartner();
+  }, [chatId]);
 
-    onSendMessage(messageText);
-    setMessageText('');
-    setShowEmojiPicker(false);
-    if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Fetch messages and setup socket connection
+  useEffect(() => {
+    if (!chatId || !session?.user) return;
+
+    // Socket connection for real-time messages would be implemented here
+    const fetchMessages = async () => {
+      try {
+        const response = await fetch(`/api/chat/${chatId}/messages`);
+        if (response.ok) {
+          const data = await response.json();
+          setMessages(data);
+        }
+      } catch (error) {
+        console.error("Error fetching messages:", error);
       }
-    if (onTyping) onTyping(false);
-  };
+    };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
+    fetchMessages();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setMessageText(e.target.value);
-    handleTyping();
-  };
+    // Setup socket connection
+    // const socket = io();
+    // socket.on("connect", () => {
+    //   socket.emit("joinChat", { chatId, userId: session.user.id });
+    // });
+    // socket.on("newMessage", (message) => {
+    //   setMessages((prev) => [...prev, message]);
+    // });
+    // 
+    // return () => {
+    //   socket.disconnect();
+    // };
+  }, [chatId, session]);
 
-  const handleEmojiSelect = (emoji: any) => {
-    setMessageText(prev => prev + emoji.native);
-  };
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
 
-  const formatTime = (dateString: string | Date) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+    if (!newMessage.trim() || !session?.user || loading) return;
 
-  const handleStartChat = async (userId: string) => {
+    setLoading(true);
+
     try {
-      setChatLoading(true);
-
-      // Add validation
-      if (!userId || userId.trim() === '') {
-        throw new Error('Invalid user ID provided');
-      }
-
-      console.log('Attempting to create chat with user:', userId);
-      const chatId = await createChatWithUser(userId);
-
-      if (chatId) {
-        console.log('Successfully created chat, navigating to:', chatId);
-        router.push(`/chat/${chatId}`);
-      } else {
-        console.error('No chat ID returned after successful creation');
-        throw new Error('Failed to create or find chat - No chat ID returned');
-      }
-    } catch (error: any) {
-      console.error('Error starting chat:', error);
-      // Show a more detailed error message
-      toast({
-        title: 'Chat Error',
-        description: `Could not start chat: ${error.message || 'Unknown error'}`,
-        variant: 'destructive',
-        duration: 5000,
+      const response = await fetch(`/api/chat/${chatId}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: newMessage,
+          senderId: session.user.id,
+        }),
       });
 
-      // Log additional details for debugging
-      if (error.stack) {
-        console.error('Error stack:', error.stack);
+      if (response.ok) {
+        const sentMessage = await response.json();
+        setMessages((prev) => [...prev, sentMessage]);
+        setNewMessage("");
       }
+    } catch (error) {
+      console.error("Error sending message:", error);
     } finally {
-      setChatLoading(false);
+      setLoading(false);
     }
   };
 
-
-  const [showNotification, setShowNotification] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState('');
-  
-  // Display notification for new messages
-  useEffect(() => {
-    if (messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      // Only show notification for messages from the partner
-      if (lastMessage.senderId !== session?.user?.id) {
-        setNotificationMessage(`New message from ${chatPartner?.name || 'your chat partner'}`);
-        setShowNotification(true);
-        
-        // Hide notification after 3 seconds
-        const timer = setTimeout(() => {
-          setShowNotification(false);
-        }, 3000);
-        
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [messages, chatPartner?.name, session?.user?.id]);
-
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       {/* Chat header */}
-      <div className="p-4 border-b flex items-center space-x-4">
-        <Avatar>
-          <AvatarImage src={chatPartner?.image || ''} />
-          <AvatarFallback>
-            {chatPartner?.name?.charAt(0) || '?'}
-          </AvatarFallback>
-        </Avatar>
-        <div>
-          <h2 className="font-semibold">{chatPartner?.name || 'Unknown User'}</h2>
-          <p className="text-sm text-muted-foreground">
-            {chatPartner?.online ? 'Online' : chatPartner?.lastSeen ? `Last seen: ${formatTime(chatPartner.lastSeen)}` : 'Offline'}
-          </p>
+      <div className="p-4 border-b bg-white dark:bg-gray-800 flex items-center">
+        <div className="flex-1">
+          <h2 className="font-medium">{partner?.displayName || "Chat"}</h2>
+          {partner?.status && <p className="text-sm text-gray-500">{partner.status}</p>}
         </div>
       </div>
-      
-      {/* Notification */}
-      {showNotification && (
-        <div className="new-message-notification">
-          {notificationMessage}
-        </div>
-      )}
 
-      {/* Messages */}
-      <div className="flex-1 p-4 overflow-y-auto">
-        <div className="space-y-4">
-          {messages.map((message) => {
-            const isOwnMessage = message.sender._id === session?.user?.id;
+      {/* Messages area */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500 dark:text-gray-400">
+              No messages yet. Start the conversation!
+            </p>
+          </div>
+        ) : (
+          messages.map((message, index) => {
+            const isOwnMessage = message.senderId === session?.user?.id;
 
             return (
-              <div
-                key={message._id}
+              <div 
+                key={message.id || index}
                 className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
               >
-                <div className="flex items-end space-x-2">
-                  {!isOwnMessage && (
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage src={message.sender.image || message.sender.profilePic || ''} />
-                      <AvatarFallback>
-                        {message.sender.name?.charAt(0) || '?'}
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-                  <div
-                    className={`px-4 py-2 rounded-lg max-w-xs sm:max-w-md ${
-                      isOwnMessage
-                        ? 'bg-primary text-white'
-                        : 'bg-muted'
-                    }`}
-                  >
-                    <p>{message.content}</p>
-                    <p className="text-xs opacity-70 text-right mt-1">
-                      {formatTime(message.createdAt)}
-                    </p>
-                  </div>
+                <div 
+                  className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                    isOwnMessage 
+                      ? 'bg-blue-500 text-white rounded-br-none' 
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none'
+                  }`}
+                >
+                  <p>{message.content}</p>
+                  <span className="text-xs opacity-70 mt-1 block text-right">
+                    {new Date(message.timestamp || Date.now()).toLocaleTimeString([], { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </span>
                 </div>
               </div>
             );
-          })}
-
-          {/* Typing indicator */}
-          {isTyping && (
-            <div className="flex justify-start">
-              <div className="px-4 py-2 rounded-lg bg-muted max-w-fit">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0s' }}></div>
-                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
+          })
+        )}
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* Message input */}
-      <div className="p-4 border-t relative">
-        {showEmojiPicker && (
-          <div className="absolute bottom-16 right-4">
-            <Picker
-              data={data}
-              onEmojiSelect={handleEmojiSelect}
-              theme="light"
-              previewPosition="none"
-            />
-          </div>
-        )}
-        <div className="flex space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            type="button"
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          >
-            <Smile className="h-5 w-5" />
-          </Button>
+      {/* Message input area */}
+      <div className="p-4 bg-white dark:bg-gray-800 border-t">
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
           <Input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
-            value={messageText}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
             className="flex-1"
           />
-          <Button type="submit" onClick={handleSendMessage} disabled={!messageText.trim()}>
-            <Send className="h-5 w-5" />
+          <Button 
+            type="submit" 
+            disabled={loading || !newMessage.trim()}
+            size="icon"
+          >
+            <Send className="h-4 w-4" />
           </Button>
-        </div>
+        </form>
       </div>
     </div>
   );
 }
-
-// Dummy function - needs to be replaced with actual implementation
-// Import the actual function instead of using a mock
-import { createChatWithUser } from '@/hooks/use-chat';
