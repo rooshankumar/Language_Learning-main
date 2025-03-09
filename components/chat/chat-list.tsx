@@ -32,31 +32,34 @@ export default function ChatList() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchChatPartner(chatId: string) {
+    const fetchChatPartner = async (chatId: string) => {
       try {
-        console.log("📩 Fetching partner for chat:", chatId);
-        const res = await fetch(`/api/chat/${chatId}/partner`);
-        
-        if (!res.ok) {
-          console.error("❌ Failed to fetch partner:", res.status);
-          return null; // Don't crash app if API fails
+        console.log(`📌 Fetching partner for chat ${chatId}...`);
+        const response = await fetch(`/api/chat/${chatId}/partner`);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error(`❌ Partner fetch failed with status ${response.status}:`, errorData);
+          throw new Error(errorData.error || "Failed to fetch chat partner");
         }
 
-        const data = await res.json();
-        console.log("✅ Partner data received for chat:", chatId);
-        return data;
+        const partner = await response.json();
+        console.log(`✅ Partner fetched successfully for chat ${chatId}:`, partner ? partner.name : 'unknown');
+        return partner;
       } catch (error) {
-        console.error("🚨 Error in fetchChatPartner:", error);
-        return null; // Return null instead of crashing
+        console.error(`🚨 Failed to fetch chat partner for chat ${chatId}:`, error.message);
+        // Instead of throwing error which breaks the Promise.all chain,
+        // return null so UI can handle this gracefully
+        return null;
       }
-    }
+    };
 
     async function fetchChats() {
       try {
         setLoading(true);
         console.log("📩 Fetching all chats...");
         const res = await fetch("/api/chat");
-        
+
         if (!res.ok) {
           throw new Error(`Failed to fetch chats: ${res.status}`);
         }
@@ -69,9 +72,9 @@ export default function ChatList() {
           setLoading(false);
           return;
         }
-        
+
         console.log(`✅ Retrieved ${data.length} chats`);
-        
+
         // Process chats with better error handling
         const enhancedChats = await Promise.all(
           data.map(async (chat) => {
@@ -85,28 +88,8 @@ export default function ChatList() {
             }
           })
         );
-        
+
         setChats(enhancedChats);
-      } catch (error) {
-        console.error("🚨 Failed to fetch chats:", error);
-        setError("Failed to load your conversations");
-        setChats([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchChats();
-
-        // Get partner info for each chat
-        const chatsWithPartner = await Promise.all(
-          data.map(async (chat) => {
-            const partner = await fetchChatPartner(chat._id);
-            return { ...chat, partner };
-          })
-        );
-
-        setChats(chatsWithPartner);
         setError(null);
       } catch (error: any) {
         console.error("Failed to fetch chats:", error);
