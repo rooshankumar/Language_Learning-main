@@ -15,8 +15,7 @@ export async function GET() {
       );
     }
 
-    const client = await clientPromise;
-    const db = client.db();
+    const { db } = await connectToDatabase();
 
     const users = await db.collection("users")
       .find({ _id: { $ne: new ObjectId(session.user.id) } })
