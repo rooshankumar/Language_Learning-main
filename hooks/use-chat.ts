@@ -20,6 +20,15 @@ interface ChatUser {
   lastSeen?: Date;
 }
 
+interface Chat {
+  _id: string;
+  participants: string[];
+  lastMessage?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  partner?: ChatUser;
+}
+
 const initialState: ChatState = {
   messages: [],
   isTyping: false,
@@ -30,6 +39,7 @@ export function useChat() {
   const [state, setState] = useState<ChatState>(initialState);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [users, setUsers] = useState<ChatUser[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
   const [error, setError] = useState<string | null>(null);
   const { data: session } = useSession();
 
@@ -179,14 +189,54 @@ export function useChat() {
     return users.find(user => user._id === userId) || null;
   }, [users]);
 
+  const createChatWithUser = useCallback(async (partnerId: string) => {
+    if (!session?.user?.id || !partnerId) {
+      console.error("🚨 Missing user ID or partner ID");
+      throw new Error("User ID and partner ID are required");
+    }
+
+    try {
+      console.log(`📌 Creating chat with partner ${partnerId}...`);
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({ 
+          partnerId 
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`❌ Chat creation failed with status ${response.status}:`, errorData);
+        throw new Error(errorData.error || "Failed to create chat");
+      }
+
+      const newChat = await response.json();
+      console.log(`✅ Chat created successfully:`, newChat);
+      
+      // Update chats state with the new chat
+      setChats(prevChats => [...prevChats, newChat]);
+      
+      return newChat;
+    } catch (error: any) {
+      console.error("🚨 Failed to create chat:", error.message);
+      setError(error.message || "Failed to create chat");
+      throw error;
+    }
+  }, [session?.user?.id]);
+
   return {
     ...state,
     users,
+    chats,
     error,
     sendMessage,
     loadChatHistory,
     joinChat,
     setTyping,
-    getUserById
+    getUserById,
+    createChatWithUser
   };
 }

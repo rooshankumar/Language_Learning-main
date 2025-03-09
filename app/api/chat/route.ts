@@ -1,4 +1,99 @@
 
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import Chat from '@/models/Chat';
+import { connectToDatabase } from '@/lib/mongodb';
+
+export async function POST(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = session.user.id;
+    const { partnerId } = await request.json();
+    
+    if (!partnerId) {
+      return NextResponse.json(
+        { error: 'Partner ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Connect to database
+    await connectToDatabase();
+    
+    // Check if chat already exists between these users
+    const existingChat = await Chat.findOne({
+      participants: { 
+        $all: [userId, partnerId],
+        $size: 2
+      }
+    });
+    
+    if (existingChat) {
+      console.log('Chat already exists:', existingChat);
+      return NextResponse.json(existingChat);
+    }
+    
+    // Create new chat
+    const newChat = await Chat.create({
+      participants: [userId, partnerId],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    console.log('New chat created:', newChat);
+    return NextResponse.json(newChat);
+    
+  } catch (error: any) {
+    console.error('Error creating chat:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to create chat' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const userId = session.user.id;
+    
+    // Connect to database
+    await connectToDatabase();
+    
+    // Get all chats for current user
+    const chats = await Chat.find({
+      participants: userId
+    }).sort({ updatedAt: -1 });
+    
+    return NextResponse.json(chats);
+    
+  } catch (error: any) {
+    console.error('Error fetching chats:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch chats' },
+      { status: 500 }
+    );
+  }
+}
+
+
 import { NextResponse } from "next/server";
 import clientPromise from '@/lib/mongodb';
 import { getServerSession } from "next-auth/next";
