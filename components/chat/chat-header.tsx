@@ -31,6 +31,9 @@ export function ChatHeader({ partnerId }: ChatHeaderProps) {
     fetchPartner();
   }, [partnerId]);
   
+  // Import at the top of the file
+  import { formatLastSeen } from "@/lib/user-activity";
+  
   return (
     <div className="flex items-center p-3 border-b">
       <Avatar className="h-10 w-10 mr-3">
@@ -43,7 +46,12 @@ export function ChatHeader({ partnerId }: ChatHeaderProps) {
         <h3 className="font-medium">{partner.name || "Unknown User"}</h3>
         <div className="flex items-center text-xs text-muted-foreground">
           <span className={`h-2 w-2 rounded-full mr-1 ${partner.isOnline ? "bg-green-500" : "bg-gray-400"}`}></span>
-          <span>{partner.isOnline ? "Online" : "Offline"}</span>
+          <span>
+            {partner.isOnline 
+              ? "Online" 
+              : `Last seen ${formatLastSeen(partner.lastActive || partner.lastSeen)}`
+            }
+          </span>
         </div>
       </div>
     </div>

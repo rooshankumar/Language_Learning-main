@@ -18,6 +18,7 @@ const userSchema = new Schema(
     interests: { type: [String], default: [] },
     isOnboarded: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now },
+    lastActive: { type: Date, default: Date.now },
     online: { type: Boolean, default: false },
     photoURL: { type: String, default: '/placeholder-user.jpg' }, // For compatibility
     profilePic: { type: String, default: '/placeholder-user.jpg' }, // Cloudinary URL

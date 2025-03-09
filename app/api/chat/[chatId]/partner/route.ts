@@ -33,7 +33,7 @@ export async function GET(req, { params }) {
       return NextResponse.json({ error: "Chat partner not found" }, { status: 404 });
     }
 
-    const partner = await User.findById(partnerId).select("displayName image status");
+    const partner = await User.findById(partnerId).select("displayName image status lastActive"); //Added lastActive
 
     if (!partner) {
       return NextResponse.json({ error: "Chat partner not found" }, { status: 404 });

@@ -5,12 +5,16 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
+import { formatLastSeen } from "@/lib/user-activity";
 
 interface ChatPartner {
   _id: string;
   name: string;
   image?: string;
   profilePic?: string;
+  online?: boolean;
+  lastSeen?: Date;
+  lastActive?: Date;
 }
 
 interface Chat {
