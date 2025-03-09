@@ -115,3 +115,27 @@ export async function POST(req: Request) {
     );
   }
 }
+import { NextResponse } from "next/server";
+import { connectToDatabase } from "@/lib/mongodb";
+
+export async function GET() {
+  try {
+    const { db } = await connectToDatabase();
+    const chats = await db.collection("chats").find().toArray();
+
+    if (!chats || chats.length === 0) {
+      console.error("❌ No chats found in the database");
+      return new NextResponse(JSON.stringify({ error: "No chats available" }), {
+        status: 404,
+      });
+    }
+
+    console.log("✅ Chats fetched successfully");
+    return new NextResponse(JSON.stringify(chats), { status: 200 });
+  } catch (error) {
+    console.error("🚨 Error fetching chats:", error);
+    return new NextResponse(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+    });
+  }
+}
