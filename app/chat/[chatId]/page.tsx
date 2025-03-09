@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import ChatInterface from "@/components/chat/chat-interface";
-import AppShell from "@/components/app-shell";
+import { AppShell } from "@/components/app-shell";
 import { useSession } from "next-auth/react";
 import { joinChat, useChat } from "@/hooks/use-chat";
 
