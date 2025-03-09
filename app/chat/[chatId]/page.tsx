@@ -1,244 +1,185 @@
-
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
+import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import ChatInterface from '@/components/chat/chat-interface';
+import { ChatInterface } from '@/components/chat/chat-interface';
+import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import useChat from '@/hooks/use-chat';
-import { format } from 'date-fns';
-
-interface Message {
-  id: string;
-  content: string;
-  sender: {
-    id: string;
-    name: string;
-    avatar?: string;
-  };
-  timestamp: Date;
-}
+import { AppShell } from '@/components/app-shell';
 
 export default function Page() {
-  const params = useParams();
-  const router = useRouter();
+  const { chatId } = useParams();
   const { data: session } = useSession();
-  const chatId = params.chatId as string;
+  const { messages, sendMessage, joinChat, loadChatHistory, setTyping } = useChat();
+  const [chat, setChat] = useState<any>(null);
+  const [partner, setPartner] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [chat, setChat] = useState<any | null>(null);
-  const [recipient, setRecipient] = useState<any | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  const {
-    messages,
-    isConnected,
-    isTyping,
-    sendMessage,
-    loadChatHistory,
-    joinChat,
-    setTyping
-  } = useChat();
 
-  // Load chat details and messages
+  // Fetch chat data
   useEffect(() => {
     if (!chatId || !session?.user?.id) return;
-    
+
     const fetchChatData = async () => {
-      setLoading(true);
       try {
-        // Fetch chat details
-        const chatResponse = await fetch(`/api/chat/${chatId}`);
-        if (!chatResponse.ok) {
-          throw new Error('Failed to load chat');
+        setLoading(true);
+        const res = await fetch(`/api/chat/${chatId}`);
+
+        if (!res.ok) {
+          throw new Error('Failed to fetch chat data');
         }
-        const chatData = await chatResponse.json();
-        setChat(chatData.chat);
-        
-        // Determine recipient (the other user in the chat)
-        const otherParticipant = chatData.chat.participants.find(
-          (p: any) => p._id !== session.user.id
-        );
-        
-        if (otherParticipant) {
-          setRecipient(otherParticipant);
+
+        const chatData = await res.json();
+        setChat(chatData);
+
+        // Find partner user (not current user)
+        if (chatData && chatData.participants) {
+          const partnerId = chatData.participants.find(
+            (id: string) => id !== session.user.id
+          );
+
+          if (partnerId) {
+            const userRes = await fetch(`/api/users/${partnerId}`);
+            if (userRes.ok) {
+              const userData = await userRes.json();
+              setPartner(userData);
+            }
+          }
         }
-        
-        // Load chat messages
-        await loadChatHistory(chatId);
-        
-        // Join the chat room for real-time updates
-        joinChat(chatId);
+
+        // Join chat room
+        joinChat(chatId as string);
+
+        // Load chat history
+        await loadChatHistory(chatId as string);
+
+        setLoading(false);
       } catch (err: any) {
         console.error('Error loading chat:', err);
         setError(err.message || 'Failed to load chat');
-      } finally {
         setLoading(false);
       }
     };
-    
-    fetchChatData();
-    
-    // Cleanup function
-    return () => {
-      // Any cleanup needed
-    };
-  }, [chatId, session, loadChatHistory, joinChat]);
 
-  // Scroll to bottom of messages
+    fetchChatData();
+  }, [chatId, session?.user?.id, joinChat, loadChatHistory]);
+
+  // Scroll to bottom when messages change
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Handle sending messages
-  const handleSendMessage = (content: string) => {
-    if (!chatId || !isConnected) return false;
-    return sendMessage(content, chatId);
+  const handleSendMessage = (message: string) => {
+    if (message.trim() && chatId) {
+      const success = sendMessage(message, chatId as string);
+      if (!success) {
+        setError('Failed to send message');
+      }
+    }
   };
 
-  // Handle typing indicators
   const handleTyping = (isTyping: boolean) => {
-    if (!chatId) return;
-    setTyping(chatId, isTyping);
+    if (chatId) {
+      setTyping(chatId as string, isTyping);
+    }
   };
 
-  // Go back to chat list
-  const goBack = () => {
-    router.push('/chat');
-  };
-
-  // Show loading state
-  if (loading) {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="border-b p-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={goBack}>
-            <ArrowLeft className="h-5 w-5" />
-            <span className="sr-only">Go back</span>
-          </Button>
-          <Skeleton className="h-10 w-10 rounded-full" />
-          <Skeleton className="h-5 w-40" />
-        </div>
-        <div className="flex-1 p-4 overflow-auto">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex gap-2 mb-4">
-              <Skeleton className="h-10 w-10 rounded-full" />
-              <div className="flex-1">
-                <Skeleton className="h-4 w-20 mb-2" />
-                <Skeleton className="h-16 w-full" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-4">
-        <div className="text-red-500 mb-4">Error: {error}</div>
-        <Button onClick={goBack}>Return to Chat List</Button>
-      </div>
-    );
-  }
-
-  // Render the chat interface
   return (
-    <div className="flex flex-col h-full">
-      {/* Chat header with recipient info */}
-      <div className="border-b p-4 flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={goBack}>
-          <ArrowLeft className="h-5 w-5" />
-          <span className="sr-only">Go back</span>
-        </Button>
-        
-        {recipient && (
-          <div className="flex items-center gap-3">
+    <AppShell>
+      <div className="flex flex-col h-screen max-h-screen overflow-hidden">
+        {/* Chat Header */}
+        {partner && (
+          <div className="border-b p-3 flex items-center space-x-3">
             <Avatar>
-              <AvatarImage src={recipient.avatar || '/placeholder-user.jpg'} alt={recipient.name} />
-              <AvatarFallback>{recipient.name?.charAt(0) || 'U'}</AvatarFallback>
+              <AvatarImage src={partner.image || partner.profilePic || "/placeholder-user.jpg"} alt={partner.name} />
+              <AvatarFallback>{partner.name?.charAt(0) || "U"}</AvatarFallback>
             </Avatar>
             <div>
-              <div className="font-medium">{recipient.name || 'User'}</div>
-              <div className="text-xs text-muted-foreground">
-                {recipient.isOnline ? 'Online' : 'Offline'}
-              </div>
+              <h2 className="font-semibold">{partner.name || "Unknown User"}</h2>
+              <p className="text-xs text-muted-foreground">
+                {partner.online ? "Online" : "Offline"}
+              </p>
             </div>
           </div>
         )}
-      </div>
-      
-      {/* Chat messages */}
-      <div className="flex-1 p-4 overflow-auto">
-        {messages.map((message) => (
-          <div 
-            key={message.id}
-            className={`flex gap-2 mb-4 ${
-              message.sender.id === session?.user?.id ? 'justify-end' : 'justify-start'
-            }`}
-          >
-            {message.sender.id !== session?.user?.id && (
-              <Avatar className="h-8 w-8">
-                <AvatarImage 
-                  src={message.sender.avatar || '/placeholder-user.jpg'} 
-                  alt={message.sender.name} 
-                />
-                <AvatarFallback>{message.sender.name?.charAt(0) || 'U'}</AvatarFallback>
-              </Avatar>
-            )}
-            
-            <div 
-              className={`rounded-lg p-3 max-w-[80%] ${
-                message.sender.id === session?.user?.id 
-                  ? 'bg-primary text-primary-foreground ml-auto'
-                  : 'bg-muted'
-              }`}
-            >
-              <div className="text-sm">{message.content}</div>
-              <div className="text-xs mt-1 opacity-70">
-                {format(new Date(message.timestamp), 'p')}
-              </div>
+
+        {/* Chat Messages */}
+        <ScrollArea className="flex-1 p-4">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <p>Loading messages...</p>
             </div>
-            
-            {message.sender.id === session?.user?.id && (
-              <Avatar className="h-8 w-8">
-                <AvatarImage 
-                  src={session.user.image || '/placeholder-user.jpg'} 
-                  alt={session.user.name || 'You'} 
-                />
-                <AvatarFallback>{session.user.name?.charAt(0) || 'Y'}</AvatarFallback>
-              </Avatar>
-            )}
-          </div>
-        ))}
-        
-        {/* Typing indicators */}
-        {Object.entries(isTyping).map(([username, typing]) => 
-          typing && (
-            <div key={username} className="text-sm text-muted-foreground mb-2">
-              {username} is typing...
+          ) : error ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-red-500">{error}</p>
             </div>
-          )
-        )}
-        
-        {/* Invisible element to scroll to */}
-        <div ref={messagesEndRef} />
+          ) : messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted-foreground">No messages yet. Say hello!</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((message) => {
+                const isCurrentUser = message.sender._id === session?.user?.id;
+
+                return (
+                  <div
+                    key={message._id}
+                    className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className="flex items-start gap-2 max-w-[80%]">
+                      {!isCurrentUser && (
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={message.sender.image || "/placeholder-user.jpg"} />
+                          <AvatarFallback>{message.sender.name?.charAt(0) || "U"}</AvatarFallback>
+                        </Avatar>
+                      )}
+
+                      <div
+                        className={`rounded-lg p-3 ${
+                          isCurrentUser
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted'
+                        }`}
+                      >
+                        <div className="text-sm">{message.text}</div>
+                        <div className="text-xs mt-1 opacity-70">
+                          {new Date(message.createdAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                      </div>
+
+                      {isCurrentUser && (
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={session?.user?.image || "/placeholder-user.jpg"} />
+                          <AvatarFallback>{session?.user?.name?.charAt(0) || "U"}</AvatarFallback>
+                        </Avatar>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </ScrollArea>
+
+        {/* Chat Input */}
+        <div className="p-3 pt-0">
+          <Separator className="my-3" />
+          <ChatInterface
+            onSendMessage={handleSendMessage}
+            onTyping={handleTyping}
+            loading={loading}
+          />
+        </div>
       </div>
-      
-      {/* Chat input */}
-      <ChatInterface 
-        onSendMessage={handleSendMessage} 
-        onTyping={handleTyping}
-        isLoading={!isConnected}
-      />
-    </div>
+    </AppShell>
   );
 }
