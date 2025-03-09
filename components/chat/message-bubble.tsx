@@ -52,3 +52,65 @@ export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
     </div>
   );
 }
+'use client';
+
+import { useSession } from 'next-auth/react';
+import Image from 'next/image';
+import { Message } from '@/lib/chat-service';
+import { formatDistanceToNow } from 'date-fns';
+
+interface MessageBubbleProps {
+  message: Message;
+}
+
+export default function MessageBubble({ message }: MessageBubbleProps) {
+  const { data: session } = useSession();
+  const isSentByCurrentUser = session?.user?.id === message.sender._id;
+  
+  // Format timestamp
+  const timestamp = message.createdAt 
+    ? formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })
+    : '';
+
+  return (
+    <div className={`flex w-full mb-4 ${isSentByCurrentUser ? 'justify-end' : 'justify-start'}`}>
+      {!isSentByCurrentUser && (
+        <div className="flex-shrink-0 mr-2">
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200">
+            {message.sender.image || message.sender.profilePic ? (
+              <Image 
+                src={message.sender.image || message.sender.profilePic} 
+                alt={message.sender.name}
+                width={32}
+                height={32}
+                className="object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-primary text-primary-foreground text-sm font-medium">
+                {message.sender.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      <div className={`flex flex-col max-w-[70%]`}>
+        {!isSentByCurrentUser && (
+          <span className="text-xs text-gray-500 mb-1">{message.sender.name}</span>
+        )}
+        
+        <div className={`px-4 py-2 rounded-lg break-words ${
+          isSentByCurrentUser 
+            ? 'bg-primary text-primary-foreground rounded-tr-none' 
+            : 'bg-secondary text-secondary-foreground rounded-tl-none'
+        }`}>
+          {message.content}
+        </div>
+        
+        <span className={`text-xs text-gray-500 mt-1 ${isSentByCurrentUser ? 'text-right' : 'text-left'}`}>
+          {timestamp}
+        </span>
+      </div>
+    </div>
+  );
+}

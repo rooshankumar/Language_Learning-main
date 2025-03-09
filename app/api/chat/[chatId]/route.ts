@@ -33,6 +33,15 @@ export async function GET(
   try {
     const { db } = await connectToDatabase();
     
+    // First verify the chat exists
+    const chat = await db.collection("chats").findOne({
+      _id: new ObjectId(chatId), // Ensure correct ID format
+    });
+
+    if (!chat) {
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    }
+    
     // Optimize query with proper indexing and limit
     const messages = await db.collection("messages")
       .find({ chatId })
@@ -40,10 +49,10 @@ export async function GET(
       .limit(100)  // Limit to most recent messages for performance
       .toArray();
     
-    return NextResponse.json(messages);
+    return NextResponse.json({ messages });
   } catch (error) {
     console.error("❌ Error fetching messages:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -63,13 +72,26 @@ export async function POST(
   }
 
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { db } = await connectToDatabase();
     const data = await req.json();
 
-    // Add message to database
+    if (!data.content || typeof data.content !== "string") {
+      return NextResponse.json({ error: "Message content is required" }, { status: 400 });
+    }
+
     const result = await db.collection("messages").insertOne({
       chatId,
-      ...data,
+      content: data.content,
+      sender: {
+        _id: session.user.id,
+        name: session.user.name,
+        image: session.user.image
+      },
       timestamp: new Date()
     });
     
@@ -80,7 +102,10 @@ export async function POST(
   }
 }
 
-export async function DELETE(req: Request, { params }: RouteParams) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { chatId: string } }
+) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -113,8 +138,43 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       );
     }
 
-    // Verify user is a participant before deletion
+    // Verify user is part of this chat
     const chat = await db.collection("chats").findOne({
       _id: objectChatId,
       participants: userId
     });
+
+    if (!chat) {
+      console.error(`Chat ${chatId} not found or user ${userId} is not a participant`);
+      return NextResponse.json(
+        { error: "Chat not found or you're not a participant" },
+        { status: 404 }
+      );
+    }
+    
+    // Ensure the chat has an ID in the expected format
+    const formattedChat = {
+      ...chat,
+      _id: chat._id.toString(),
+      chatId: chat._id.toString()
+    };
+
+    // Delete the chat
+    const result = await db.collection("chats").deleteOne({ _id: objectChatId });
+    
+    if (result.deletedCount === 0) {
+      return NextResponse.json(
+        { error: "Failed to delete chat" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ message: "Chat deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting chat:", error);
+    return NextResponse.json(
+      { error: "Server error when deleting chat" },
+      { status: 500 }
+    );
+  }
+}
