@@ -20,15 +20,12 @@ export async function middleware(request: NextRequest) {
                       request.nextUrl.pathname === '/favicon.ico'
 
   // If trying to access auth page while logged in, redirect to home
-  if (isAuthPage) {
-    if (token) {
-      return NextResponse.redirect(new URL('/', request.url))
-    }
-    return NextResponse.next()
+  if (isAuthPage && token) {
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
   // If accessing protected route without being logged in
-  if (!isPublicPath && !token) {
+  if (!isPublicPath && !isAuthPage && !token) {
     const url = new URL('/sign-in', request.url)
     url.searchParams.set('callbackUrl', request.nextUrl.pathname)
     return NextResponse.redirect(url)

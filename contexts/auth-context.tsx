@@ -78,15 +78,14 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      const result = await signOut({ 
-        redirect: false,
+      await signOut({ 
+        redirect: true,
         callbackUrl: '/sign-in'
       });
-
-      setUser(null);
-      window.location.href = '/sign-in';
     } catch (error) {
       console.error('Logout error:', error);
+      // Fallback if the redirect fails
+      window.location.href = '/sign-in';
     }
   };
 

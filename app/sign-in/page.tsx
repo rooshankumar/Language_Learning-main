@@ -31,9 +31,8 @@ export default function SignIn() {
         return;
       }
 
-      // Successful login
-      router.push('/');
-      router.refresh();
+      // Successful login - use window.location for a full page reload
+      window.location.href = '/';
     } catch (error) {
       console.error('Sign-in error:', error);
       setError('An unexpected error occurred');
